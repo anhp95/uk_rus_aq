@@ -59,5 +59,20 @@ def plot_s5p_no2_year(s5p_nc):
         )
         plt.title(f"{y}", fontsize=18)
 
+def plot(lon, lat):
+    lonlat = zip(lon, lat)
+
+    list_lonlat = list(lonlat)
+
+    train = random.sample(list_lonlat, 10000)
+    test = random.sample(list_lonlat, 1000)
+    crs = {"init": "epsg:4326"}
+    geo_train = gpd.GeoDataFrame(crs=crs, geometry=[Point(xy) for xy in zip(train)])
+    geo_test = gpd.GeoDataFrame(crs=crs, geometry=[Point(xy) for xy in zip(test)])
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    # ukr_shp.plot(ax=ax)
+    geo_train.plot(ax=ax, color="green", markersize=5)
+    geo_test.plot(ax=ax, color="red", markersize=5)
 
 # %%

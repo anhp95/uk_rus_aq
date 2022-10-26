@@ -41,6 +41,8 @@ ERA5_LAT_FILE = os.path.join(BASE_DIR, "interp_latlon", "era5_lat.npy")
 ERA5_LON_FILE = os.path.join(BASE_DIR, "interp_latlon", "era5_lon.npy")
 POP_LAT_FILE = os.path.join(BASE_DIR, "interp_latlon", "pop_lat.npy")
 POP_LON_FILE = os.path.join(BASE_DIR, "interp_latlon", "pop_lon.npy")
+CAMS_REALS_LAT_FILE = os.path.join(BASE_DIR, "interp_latlon", "cams_reals_lat.npy")
+CAMS_REALS_LON_FILE = os.path.join(BASE_DIR, "interp_latlon", "cams_reals_lon.npy")
 
 # PREPROCESS DIR
 

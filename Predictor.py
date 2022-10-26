@@ -78,10 +78,10 @@ class Predictor:
             self.org_ds = self.org_ds.drop_sel(time=list_date)
 
     def interpolate(self):
-        pop_lat = np.load(POP_LAT_FILE)
-        pop_lon = np.load(POP_LON_FILE)
+        interp_lat = np.load(CAMS_REALS_LAT_FILE)
+        interp_lon = np.load(CAMS_REALS_LON_FILE)
 
-        self.org_ds = self.org_ds.interp(lat=pop_lat, lon=pop_lon)
+        self.org_ds = self.org_ds.interp(lat=interp_lat, lon=interp_lon)
 
     def to_nc(self):
         self.org_ds.to_netcdf(self.file_name)
@@ -189,11 +189,11 @@ class Pop(Predictor):
 #%%
 if __name__ == "__main__":
 
-    # cams_reals_no2 = CAMS_REALS_NO2(CAM_REALS_NO2_NC)
-    # cams_fc_no2 = CAMS_FC_NO2(CAM_FC_NO2_NC)
+    cams_reals_no2 = CAMS_REALS_NO2(CAM_REALS_NO2_NC)
+    cams_fc_no2 = CAMS_FC_NO2(CAM_FC_NO2_NC)
     era5 = ERA5(ERA5_NC)
-    # s5p_no2 = S5P_NO2(S5P_NO2_NC)
-    # pop = Pop(POP_NC)
+    s5p_no2 = S5P_NO2(S5P_NO2_NC)
+    pop = Pop(POP_NC)
 
 # %%
 s5p_no2_nc = "data/preprocessed/s5p_no2.nc"
