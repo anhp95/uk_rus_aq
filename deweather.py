@@ -6,6 +6,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import os
 
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
@@ -66,10 +67,10 @@ class Dataset(object):
 
         list_geo = list(zip(lat, lon))
 
-        self.test_geo = random.sample(list_geo, int(len(list_geo) * 0.1))
+        self.test_geo = random.sample(list_geo, int(len(list_geo) * 0.05))
 
         [list_geo.remove(x) for x in self.test_geo]
-        train = random.sample(list_geo, int(len(list_geo) * 0.9))
+        train = random.sample(list_geo, int(len(list_geo) * 0.25))
 
         self.train_geo = [x for x in train if x not in self.test_geo]
 
@@ -109,7 +110,7 @@ class Dataset(object):
                 axis=1,
                 # ignore_index=True,
             )
-            df_train_t["jdate"] = [julian_time.values[t]] * len(self.train_geo)
+            # df_train_t["jdate"] = [julian_time.values[t]] * len(self.train_geo)
             df_train_t["time"] = [cams_2019.time.values[t]] * len(self.train_geo)
             df_train_t["dow"] = [dow[t]] * len(self.train_geo)
             df_train_t["lat"] = [x[0] for x in self.train_geo]
@@ -128,7 +129,7 @@ class Dataset(object):
                 #     ignore_index=True,
             )
 
-            df_test_t["jdate"] = [julian_time.values[t]] * len(self.test_geo)
+            # df_test_t["jdate"] = [julian_time.values[t]] * len(self.test_geo)
             df_test_t["time"] = [cams_2019.time.values[t]] * len(self.test_geo)
             df_test_t["dow"] = [dow[t]] * len(self.test_geo)
             df_test_t["lat"] = [x[0] for x in self.test_geo]
@@ -146,36 +147,43 @@ class Dataset(object):
 
 def build_deweather_model(ds):
 
-    model = RandomForestRegressor()
     # model = xgb.XGBRegressor()
 
     train = ds.train_2019
     test = ds.test_2019
 
     X_train = train.drop(columns=["s5p_no2", "time"]).values
-    X_test = test.drop(columns=["s5p_no2", "time"])
+    X_test = test.drop(columns=["s5p_no2", "time"]).values
 
     y_train = train["s5p_no2"].values
     y_test = test["s5p_no2"].values
 
-    model = model.fit(X_train, y_train)
+    np.save(X_TRAIN_NPY, X_train)
+    np.save(Y_TRAIN_NPY, y_train)
+    np.save(X_TEST_NPY, X_test)
+    np.save(Y_TEST_NPY, y_test)
+
+    if os.path.exists(DE_WEATHER_MODEL):
+        model = pickle.load(open(DE_WEATHER_MODEL, "rb"))
+    else:
+        model = RandomForestRegressor()
+        model = model.fit(X_train, y_train)
+        pickle.dump(model, open(DE_WEATHER_MODEL, "wb"))
 
     y_pred = model.predict(X_test)
     y_pred_train = model.predict(X_train)
 
-    print(f"mean_squared_error test: {mean_squared_error(y_pred, y_test)}")
-    print(f"mean_squared_error train: {mean_squared_error(y_pred_train, y_train)}")
+    print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
+    print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
 
-    print(f"r2 score test: {r2_score(y_pred, y_test)}")
-    print(f"r2 score train: {r2_score(y_pred_train, y_train)}")
+    print(f"r2 score test: {r2_score(y_test, y_pred)}")
+    print(f"r2 score train: {r2_score(y_train, y_pred_train)}")
 
     print("-------test pcc ---------")
     print(linregress(y_pred, y_test))
 
     print("-------train pcc-----------")
     print(linregress(y_pred_train, y_train))
-
-    pickle.dump(model, open(DE_WEATHER_MODEL, "wb"))
 
     return y_pred, y_test, y_pred_train, y_train
 
@@ -184,6 +192,11 @@ if __name__ == "__main__":
 
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
 
+    y_pred, y_test, y_pred_train, y_train = build_deweather_model(ds)
+    test_df = ds.test_2019
+    test_df["s5p_no2_pred"] = y_pred
+    time_df = test_df.groupby("time").mean()
+    time_df[["s5p_no2", "s5p_no2_pred"]].plot.line()
     # cams_reals_no2 = xr.open_dataset(CAM_REALS_NO2_NC)
     # cams_fc_no2 = xr.open_dataset(CAM_FC_NO2_NC)
     # cams_fc_no2 = cams_fc_no2.rename(name_dict={list(cams_fc_no2.keys())[0]: "no2"})

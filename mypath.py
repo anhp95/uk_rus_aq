@@ -54,5 +54,12 @@ ERA5_NC = os.path.join(PREPROCESS_DIR, "era5.nc")
 S5P_NO2_NC = os.path.join(PREPROCESS_DIR, "s5p_no2.nc")
 POP_NC = os.path.join(PREPROCESS_DIR, "pop.nc")
 
-DE_WEATHER_MODEL = os.path.join("de_weather_model", "model.sav")
+#deweather
+DE_WEATHER_DIR = "de_weather_model"
+DE_WEATHER_MODEL = os.path.join(DE_WEATHER_DIR, "model.sav")
+X_TRAIN_NPY = os.path.join(DE_WEATHER_DIR, "X_train.npy")
+Y_TRAIN_NPY = os.path.join(DE_WEATHER_DIR, "y_train.npy")
+
+X_TEST_NPY = os.path.join(DE_WEATHER_DIR, "X_test.npy")
+Y_TEST_NPY = os.path.join(DE_WEATHER_DIR, "y_test.npy")
 # %%
