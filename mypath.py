@@ -53,4 +53,6 @@ CAM_FC_NO2_NC = os.path.join(PREPROCESS_DIR, "cams_fc_no2.nc")
 ERA5_NC = os.path.join(PREPROCESS_DIR, "era5.nc")
 S5P_NO2_NC = os.path.join(PREPROCESS_DIR, "s5p_no2.nc")
 POP_NC = os.path.join(PREPROCESS_DIR, "pop.nc")
+
+DE_WEATHER_MODEL = os.path.join("de_weather_model", "model.sav")
 # %%
