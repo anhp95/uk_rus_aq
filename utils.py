@@ -6,10 +6,11 @@ import cfgrib
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import datashader as dsh
-from datashader.mpl_ext import dsshow
 import matplotlib.lines as mlines
-# import cartopy.crs as ccrs
+import random
 
+# import cartopy.crs as ccrs
+from datashader.mpl_ext import dsshow
 from shapely.geometry import mapping
 from shapely.geometry import Point
 from sklearn.metrics import mean_squared_error, r2_score
@@ -119,6 +120,3 @@ def plot_pred_true(ds):
     transform = axis[1].transAxes
     line.set_transform(transform)
     axis[1].add_line(line)
-
-
-# %%
