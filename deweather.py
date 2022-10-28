@@ -8,18 +8,26 @@ import numpy as np
 import pickle
 import os
 
+
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 
-from shapely.geometry import Point
+
 from const import CAMS_COLS
 
 from mypath import *
 from const import *
+from utils import *
 
 
 class Dataset(object):
+
+    de_weather_model_path = DE_WEATHER_MODEL
+
+    train_geo_path = TRAIN_GEO
+    test_geo_path = TEST_GEO
+
     def __init__(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc) -> None:
 
         self.cams = None
@@ -27,22 +35,26 @@ class Dataset(object):
         self.s5p = None
         self.pop = None
 
+        self.list_geo = None
         self.train_geo = None
         self.test_geo = None
 
         self.train_2019 = pd.DataFrame()
         self.test_2019 = pd.DataFrame()
 
-        self.non_deweather = {}
-        self.deweather = {}
+        self.de_weather_model = None
 
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
+        self.extract_list_geo()
         self.extract_train_test_lonlat()
         self.extract_train_test()
+        self.build_de_weather_model()
+        self.to_df()
+        self.de_weather()
 
     def load_data(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc):
 
-        cams_fc = xr.open_dataset(cams_fc_nc)
+        cams_fc = xr.open_dataset(cams_fc_nc) * 10e-9
         cams_fc = cams_fc.rename(name_dict={list(cams_fc.keys())[0]: "no2"})
         self.cams = xr.concat([xr.open_dataset(cams_reals_nc), cams_fc], dim="time")
         self.cams = self.cams.rename(name_dict={list(self.cams.keys())[0]: "cams_no2"})
@@ -57,7 +69,7 @@ class Dataset(object):
         self.pop = pop.rename(name_dict={list(pop.keys())[0]: "pop"})
         self.pop = self.pop.isel(band=0)
 
-    def extract_train_test_lonlat(self):
+    def extract_list_geo(self):
 
         daily_ds = self.cams.isel(time=0).to_dataframe()
         daily_ds = daily_ds.dropna()
@@ -65,156 +77,142 @@ class Dataset(object):
         lat = list(daily_ds.index.get_level_values(0))
         lon = list(daily_ds.index.get_level_values(1))
 
-        list_geo = list(zip(lat, lon))
+        self.list_geo = list(zip(lat, lon))
 
-        self.test_geo = random.sample(list_geo, int(len(list_geo) * 0.05))
+    def extract_train_test_lonlat(self):
+        if os.path.exists(self.train_geo_path) and os.path.exists(self.test_geo_path):
+            self.train_geo = pickle.load(open(self.train_geo_path, "rb"))
+            self.test_geo = pickle.load(open(self.test_geo_path, "rb"))
 
-        [list_geo.remove(x) for x in self.test_geo]
-        train = random.sample(list_geo, int(len(list_geo) * 0.25))
+        else:
 
-        self.train_geo = [x for x in train if x not in self.test_geo]
+            list_geo = self.list_geo.copy()
+            self.test_geo = random.sample(list_geo, int(len(list_geo) * 0.05))
 
-    def extract_train_test(self):
+            [list_geo.remove(x) for x in self.test_geo]
+            train = random.sample(list_geo, int(len(list_geo) * 0.25))
 
-        sd = np.datetime64(f"2019-02-24T00:00:00.000000000")
-        ed = np.datetime64(f"2019-07-31T00:00:00.000000000")
+            self.train_geo = [x for x in train if x not in self.test_geo]
 
-        cams_2019 = self.cams.sel(time=slice(sd, ed))
-        era5_2019 = self.era5.sel(time=slice(sd, ed))
-        s5p_2019 = self.s5p.sel(time=slice(sd, ed))
+            pickle.dump(self.train_geo, open(self.train_geo_path, "wb"))
+            pickle.dump(self.test_geo, open(self.test_geo_path, "wb"))
 
-        julian_time = pd.DatetimeIndex(cams_2019.time.values).to_julian_date()
-        dow = pd.DataFrame(cams_2019.time.values)[0].dt.dayofweek.values
+    def reform_data(self, year, list_geo):
 
-        df_train = []
-        df_test = []
+        sd = np.datetime64(f"{year}-02-24T00:00:00.000000000")
+        ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
+
+        cams_year = self.cams.sel(time=slice(sd, ed))
+        era5_year = self.era5.sel(time=slice(sd, ed))
+        s5p_year = self.s5p.sel(time=slice(sd, ed))
+
+        julian_time = pd.DatetimeIndex(cams_year.time.values).to_julian_date()
+        dow = pd.DataFrame(cams_year.time.values)[0].dt.dayofweek.values
+
+        df = []
 
         df_pop = self.pop.to_dataframe()
 
         for t in range(0, len(julian_time)):
 
-            ds_cams_t = cams_2019.isel(time=t)
-            ds_era5_t = era5_2019.isel(time=t)
-            ds_s5p_t = s5p_2019.isel(time=t)
+            df_cams_t = cams_year.isel(time=t).to_dataframe()[CAMS_COLS]
+            df_era5_t = era5_year.isel(time=t).to_dataframe()[ERA5_COLS]
+            df_s5p_t = s5p_year.isel(time=t).to_dataframe()[S5P_COLS]
 
-            df_cams_t = ds_cams_t.to_dataframe()[CAMS_COLS]
-            df_era5_t = ds_era5_t.to_dataframe()[ERA5_COLS]
-            df_s5p_t = ds_s5p_t.to_dataframe()[S5P_COLS]
-            df_train_t = pd.concat(
+            df_t = pd.concat(
                 [
-                    df_cams_t.loc[self.train_geo],
-                    df_era5_t.loc[self.train_geo],
-                    df_s5p_t.loc[self.train_geo],
-                    df_pop.loc[self.train_geo],
+                    df_cams_t.loc[list_geo],
+                    df_era5_t.loc[list_geo],
+                    df_s5p_t.loc[list_geo],
+                    df_pop.loc[list_geo],
                 ],
                 axis=1,
-                # ignore_index=True,
-            )
-            # df_train_t["jdate"] = [julian_time.values[t]] * len(self.train_geo)
-            df_train_t["time"] = [cams_2019.time.values[t]] * len(self.train_geo)
-            df_train_t["dow"] = [dow[t]] * len(self.train_geo)
-            df_train_t["lat"] = [x[0] for x in self.train_geo]
-            df_train_t["lon"] = [x[1] for x in self.train_geo]
-
-            df_train.append(df_train_t)
-
-            df_test_t = pd.concat(
-                [
-                    df_cams_t.loc[self.test_geo],
-                    df_era5_t.loc[self.test_geo],
-                    df_s5p_t.loc[self.test_geo],
-                    df_pop.loc[self.test_geo],
-                ],
-                axis=1,
-                #     ignore_index=True,
             )
 
-            # df_test_t["jdate"] = [julian_time.values[t]] * len(self.test_geo)
-            df_test_t["time"] = [cams_2019.time.values[t]] * len(self.test_geo)
-            df_test_t["dow"] = [dow[t]] * len(self.test_geo)
-            df_test_t["lat"] = [x[0] for x in self.test_geo]
-            df_test_t["lon"] = [x[1] for x in self.test_geo]
+            df_t["time"] = [cams_year.time.values[t]] * len(list_geo)
+            df_t["dow"] = [dow[t]] * len(list_geo)
+            df_t["lat"] = [x[0] for x in list_geo]
+            df_t["lon"] = [x[1] for x in list_geo]
 
-            df_train.append(df_train_t)
-            df_test.append(df_test_t)
+            df.append(df_t)
 
-        self.train_2019 = pd.concat(df_train, ignore_index=True)
-        self.test_2019 = pd.concat(df_test, ignore_index=True)
+        return pd.concat(df, ignore_index=True).drop(columns=["band", "spatial_ref"])
 
-        self.train_2019 = self.train_2019.dropna().drop(columns=["band", "spatial_ref"])
-        self.test_2019 = self.test_2019.dropna().drop(columns=["band", "spatial_ref"])
+    def extract_train_test(self):
 
+        train_2019 = self.reform_data(2019, self.train_geo)
+        test_2019 = self.reform_data(2019, self.test_geo)
 
-def build_deweather_model(ds):
+        self.train_2019 = train_2019.dropna()
+        self.test_2019 = test_2019.dropna()
 
-    # model = xgb.XGBRegressor()
+    def build_de_weather_model(self):
 
-    train = ds.train_2019
-    test = ds.test_2019
+        train = self.train_2019
+        test = self.test_2019
 
-    X_train = train.drop(columns=["s5p_no2", "time"]).values
-    X_test = test.drop(columns=["s5p_no2", "time"]).values
+        X_train = train.drop(columns=["s5p_no2", "time"]).values
+        X_test = test.drop(columns=["s5p_no2", "time"]).values
 
-    y_train = train["s5p_no2"].values
-    y_test = test["s5p_no2"].values
+        y_train = train["s5p_no2"].values
+        y_test = test["s5p_no2"].values
 
-    np.save(X_TRAIN_NPY, X_train)
-    np.save(Y_TRAIN_NPY, y_train)
-    np.save(X_TEST_NPY, X_test)
-    np.save(Y_TEST_NPY, y_test)
+        if os.path.exists(self.de_weather_model_path):
+            self.de_weather_model = pickle.load(open(self.de_weather_model_path, "rb"))
+        else:
+            self.de_weather_model = RandomForestRegressor()
+            self.de_weather_model = self.de_weather_model.fit(X_train, y_train)
+            pickle.dump(self.de_weather_model, open(self.de_weather_model_path, "wb"))
 
-    if os.path.exists(DE_WEATHER_MODEL):
-        model = pickle.load(open(DE_WEATHER_MODEL, "rb"))
-    else:
-        model = RandomForestRegressor()
-        model = model.fit(X_train, y_train)
-        pickle.dump(model, open(DE_WEATHER_MODEL, "wb"))
+        y_pred = self.de_weather_model.predict(X_test)
+        y_pred_train = self.de_weather_model.predict(X_train)
 
-    y_pred = model.predict(X_test)
-    y_pred_train = model.predict(X_train)
+        print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
+        print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
 
-    print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
-    print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
+        print(f"r2 score test: {r2_score(y_test, y_pred)}")
+        print(f"r2 score train: {r2_score(y_train, y_pred_train)}")
 
-    print(f"r2 score test: {r2_score(y_test, y_pred)}")
-    print(f"r2 score train: {r2_score(y_train, y_pred_train)}")
+        print("-------test pcc ---------")
+        print(linregress(y_pred, y_test))
 
-    print("-------test pcc ---------")
-    print(linregress(y_pred, y_test))
+        print("-------train pcc-----------")
+        print(linregress(y_pred_train, y_train))
 
-    print("-------train pcc-----------")
-    print(linregress(y_pred_train, y_train))
+        # plot
+        self.test_2019["s5p_no2_pred"] = y_pred
 
-    return y_pred, y_test, y_pred_train, y_train
+        return y_pred, y_test, y_pred_train, y_train
+
+    def to_df(self):
+
+        self.df_2020 = self.reform_data(2020, self.list_geo).fillna(0)
+        self.df_2021 = self.reform_data(2021, self.list_geo).fillna(0)
+        self.df_2022 = self.reform_data(2022, self.list_geo).fillna(0)
+
+    def de_weather(self):
+
+        s5p_2020_pred = self.de_weather_model.predict(
+            self.df_2020.drop(columns=["s5p_no2", "time"]).values
+        )
+        s5p_2021_pred = self.de_weather_model.predict(
+            self.df_2021.drop(columns=["s5p_no2", "time"]).values
+        )
+        s5p_2022_pred = self.de_weather_model.predict(
+            self.df_2022.drop(columns=["s5p_no2", "time"]).values
+        )
+        self.df_2020["s5p_no2_pred"] = s5p_2020_pred
+        self.df_2021["s5p_no2_pred"] = s5p_2021_pred
+        self.df_2022["s5p_no2_pred"] = s5p_2022_pred
+
+        self.dw_2020 = self.df_2020.set_index(["time", "lat", "lon"]).to_xarray()
+        self.dw_2021 = self.df_2021.set_index(["time", "lat", "lon"]).to_xarray()
+        self.dw_2022 = self.df_2022.set_index(["time", "lat", "lon"]).to_xarray()
 
 
 if __name__ == "__main__":
 
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
+    # plot_pred_true(ds)
 
-    y_pred, y_test, y_pred_train, y_train = build_deweather_model(ds)
-    test_df = ds.test_2019
-    test_df["s5p_no2_pred"] = y_pred
-    time_df = test_df.groupby("time").mean()
-    time_df[["s5p_no2", "s5p_no2_pred"]].plot.line()
-    # cams_reals_no2 = xr.open_dataset(CAM_REALS_NO2_NC)
-    # cams_fc_no2 = xr.open_dataset(CAM_FC_NO2_NC)
-    # cams_fc_no2 = cams_fc_no2.rename(name_dict={list(cams_fc_no2.keys())[0]: "no2"})
-
-    # cams_no2 = xr.concat([cams_reals_no2, cams_fc_no2], dim="time")
-    # era5 = xr.open_dataset(ERA5_NC)
-    # s5p_no2 = xr.open_dataset(S5P_NO2_NC)
-
-    # pop = xr.open_dataset(POP_NC)
-
-    # years = [2019, 2020, 2021, 2022]
-
-    # for y in years:
-
-    #     sd = np.datetime64(f"{y}-02-24T00:00:00.000000000")
-    #     ed = np.datetime64(f"{y}-07-31T00:00:00.000000000")
-
-    #     cams_year = cams_no2.sel(time=slice(sd, ed))
-    #     era5_year = era5.sel(time=slice(sd, ed))
-    #     s5p_year = s5p_no2.sel(time=slice(sd, ed))
 # %%

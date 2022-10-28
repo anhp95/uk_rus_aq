@@ -5,10 +5,14 @@ import rioxarray as rioxr
 import cfgrib
 import geopandas as gpd
 import matplotlib.pyplot as plt
-
+import datashader as dsh
+from datashader.mpl_ext import dsshow
+import matplotlib.lines as mlines
 # import cartopy.crs as ccrs
 
 from shapely.geometry import mapping
+from shapely.geometry import Point
+from sklearn.metrics import mean_squared_error, r2_score
 
 from mypath import *
 from const import *
@@ -59,6 +63,7 @@ def plot_s5p_no2_year(s5p_nc):
         )
         plt.title(f"{y}", fontsize=18)
 
+
 def plot(lon, lat):
     lonlat = zip(lon, lat)
 
@@ -74,5 +79,46 @@ def plot(lon, lat):
     # ukr_shp.plot(ax=ax)
     geo_train.plot(ax=ax, color="green", markersize=5)
     geo_test.plot(ax=ax, color="red", markersize=5)
+
+
+def plot_pred_true(ds):
+
+    figure, axis = plt.subplots(1, 2, figsize=(16, 8))
+    figure.tight_layout(pad=7.0)
+    ds.test_2019.groupby("time").mean().mul(1e6)[["s5p_no2", "s5p_no2_pred"]].plot.line(
+        ax=axis[0]
+    )
+
+    dsartist = dsshow(
+        ds.test_2019[["s5p_no2", "s5p_no2_pred"]].mul(1e6),
+        dsh.Point("s5p_no2", "s5p_no2_pred"),
+        dsh.count(),
+        norm="linear",
+        aspect="auto",
+        ax=axis[1],
+    )
+
+    plt.colorbar(dsartist)
+
+    axis[0].set_title(
+        "Time series trend of observation NO2 and Machine learning NO2 prediction"
+    )
+    axis[0].set_xlabel("Date")
+    axis[0].set_ylabel(f"$10^{{{-6}}}$ $mol/m^2$")
+
+    axis[1].set_title("NO2 Scatter Plot")
+    axis[1].set_xlabel(f"NO2 S5P Obs $10^{{{-6}}}$ $mol/m^2$")
+    axis[1].set_ylabel(f"NO2 ML predictions $10^{{{-6}}}$ $mol/m^2$")
+    axis[1].annotate(
+        "$R^2$ = {:.3f}".format(
+            r2_score(ds.test_2019["s5p_no2"], ds.test_2019["s5p_no2_pred"])
+        ),
+        (10, 300),
+    )
+    line = mlines.Line2D([0, 1], [0, 1], color="red")
+    transform = axis[1].transAxes
+    line.set_transform(transform)
+    axis[1].add_line(line)
+
 
 # %%
