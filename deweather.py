@@ -8,11 +8,9 @@ import numpy as np
 import pickle
 import os
 
-
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-
 
 from const import CAMS_COLS
 
@@ -108,6 +106,7 @@ class Dataset(object):
 
         julian_time = pd.DatetimeIndex(cams_year.time.values).to_julian_date()
         dow = pd.DataFrame(cams_year.time.values)[0].dt.dayofweek.values
+        doy = pd.DataFrame(cams_year.time.values)[0].dt.dayofyear.values
 
         df = []
 
@@ -131,6 +130,7 @@ class Dataset(object):
 
             df_t["time"] = [cams_year.time.values[t]] * len(list_geo)
             df_t["dow"] = [dow[t]] * len(list_geo)
+            df_t["doy"] = [doy[t]] * len(list_geo)
             df_t["lat"] = [x[0] for x in list_geo]
             df_t["lon"] = [x[1] for x in list_geo]
 
@@ -211,23 +211,24 @@ class Dataset(object):
 
 
 def plot_no2_change(ds):
-        ds = ds.rio.write_crs("epsg:4326", inplace=True)
-        ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
-        bound_lv2, crs = get_bound_lv2()
-        city_no2 = {}
-        for i, city in enumerate(bound_lv2["ADM2_EN"].values):
-            fig = plt.figure(1 + i, figsize=(16, 8))
-            ax = plt.subplot(1, 1, 1)
-            geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
-            ds = ds.rio.clip(geometry, crs).mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
-            city_no2[city] = ds
-            df = ds.to_dataframe()
-            df[["s5p_no2_pred", "s5p_no2"]].plot.line(ax=ax)
-            ax.set_title(
-                f"{city}"
-            )
+    ds = ds.rio.write_crs("epsg:4326", inplace=True)
+    ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+    bound_lv2, crs = get_bound_lv2()
+    city_no2 = {}
+    for i, city in enumerate(bound_lv2["ADM2_EN"].values):
+        fig = plt.figure(1 + i, figsize=(16, 8))
+        ax = plt.subplot(1, 1, 1)
+        geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
+        ds_clip = ds.rio.clip(geometry, crs).mean(dim=["lat", "lon"])[
+            ["s5p_no2_pred", "s5p_no2"]
+        ]
+        city_no2[city] = ds
+        df = ds.to_dataframe()
+        df[["s5p_no2_pred", "s5p_no2"]].plot.line(ax=ax)
+        ax.set_title(f"{city}")
 
-            return city_no2
+        # return city_no2
+
 
 if __name__ == "__main__":
 
