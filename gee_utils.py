@@ -28,6 +28,8 @@ FOLDER = "UK_RUS"
 YEARS = [2019, 2020, 2021, 2022]
 MONTHS = [2, 3, 4, 5, 6, 7]
 
+MONTHS_BF_WAR = [1, 2]
+
 NO2_BAND = "NO2_column_number_density"
 
 
@@ -50,7 +52,7 @@ def to_julian_date(year, month, day):
     return ts.to_julian_date()
 
 
-def download_no2():
+def download_no2_war():
     for y in YEARS:
         for m in MONTHS:
             d = 1 if m != 2 else 24
@@ -68,8 +70,26 @@ def download_no2():
                 export2drive(img, str(jd))
 
 
+def download_no2_bf_war():
+
+    for y in YEARS:
+        for m in MONTHS_BF_WAR:
+            ed = monthrange(y, m)[1] if m == 1 else 23
+            for dix in range(1, ed + 1):
+                jd = to_julian_date(y, m, dix)
+                print(jd)
+                img = (
+                    ee.ImageCollection("COPERNICUS/S5P/OFFL/L3_NO2")
+                    .filter(ee.Filter.eq("TIME_REFERENCE_JULIAN_DAY", jd))
+                    .mosaic()
+                    .select(NO2_BAND)
+                    .clip(UK_BOUND)
+                )
+                export2drive(img, str(jd))
+
+
 def download_pop():
-    dataset = (
+    pop = (
         ee.ImageCollection("WorldPop/GP/100m/pop")
         .filter(ee.Filter.eq("country", "UKR"))
         .filter(ee.Filter.eq("year", 2020))

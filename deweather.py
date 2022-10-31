@@ -99,7 +99,7 @@ class Dataset(object):
 
     def reform_data(self, year, list_geo):
 
-        sd = np.datetime64(f"{year}-02-24T00:00:00.000000000")
+        sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
         ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
 
         cams_year = self.cams.sel(time=slice(sd, ed))
@@ -209,6 +209,25 @@ class Dataset(object):
         self.dw_2021 = self.df_2021.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2022 = self.df_2022.set_index(["time", "lat", "lon"]).to_xarray()
 
+
+def plot_no2_change(ds):
+        ds = ds.rio.write_crs("epsg:4326", inplace=True)
+        ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+        bound_lv2, crs = get_bound_lv2()
+        city_no2 = {}
+        for i, city in enumerate(bound_lv2["ADM2_EN"].values):
+            fig = plt.figure(1 + i, figsize=(16, 8))
+            ax = plt.subplot(1, 1, 1)
+            geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
+            ds = ds.rio.clip(geometry, crs).mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
+            city_no2[city] = ds
+            df = ds.to_dataframe()
+            df[["s5p_no2_pred", "s5p_no2"]].plot.line(ax=ax)
+            ax.set_title(
+                f"{city}"
+            )
+
+            return city_no2
 
 if __name__ == "__main__":
 

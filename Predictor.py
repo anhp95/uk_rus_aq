@@ -28,7 +28,7 @@ class Predictor:
         self.extract_ds()
         self.clip_2_bound()
         self.group_by_date()
-        self.select_war_time()
+        # self.select_war_time()
         self.interpolate()
         self.to_nc()
 
@@ -123,7 +123,12 @@ class ERA5(Predictor):
         self.flag_sel_war_time = True
 
     def extract_ds(self):
-        self.org_ds = read_grib(CLIMATE_FILE)
+
+        list_grib_ds = []
+        for grib_file in CLIMATE_FILE:
+            grib_ds = read_grib(grib_file)
+            list_grib_ds.append(grib_ds)
+        self.org_ds = xr.concat(list_grib_ds, dim="time")
 
 
 class CAMS_FC_NO2(Predictor):

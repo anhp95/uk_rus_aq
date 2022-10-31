@@ -15,6 +15,7 @@ CONFLICT_XLS = os.path.join(CONFLICT_DIR, "Ukraine_Black_Sea_2020_2022_Oct07.xls
 
 BOUND_DIR = os.path.join(BASE_DIR, "uk_bound", "ukr_adm_sspe_20221005")
 UK_SHP_ADM0 = os.path.join(BOUND_DIR, "ukr_admbnda_adm0_sspe_20221005.shp")
+UK_SHP_ADM2 = os.path.join(BOUND_DIR, "ukr_admbnda_adm2_sspe_20221005.shp")
 
 POWERPLANT_DIR = os.path.join(BASE_DIR, "ukraine_powerplant")
 UK_NUC_SHP = os.path.join(POWERPLANT_DIR, "nuclear.shp")
@@ -22,19 +23,21 @@ UK_COAL_SHP = os.path.join(POWERPLANT_DIR, "coal.shp")
 
 # CLIMATE
 CLIMATE_DIR = os.path.join(BASE_DIR, "climate")
-CLIMATE_FILE = glob.glob(os.path.join(CLIMATE_DIR, "era5", "*.grib"))[0]
+CLIMATE_FILE = glob.glob(os.path.join(CLIMATE_DIR, "era5", "*.grib"))
 
 # NO2
 NO2_DIR = os.path.join(BASE_DIR, "no2")
 
 SF_REALS_NO2_2019_FILES = glob.glob(os.path.join(NO2_DIR, "cams-reals", "2019", "*.nc"))
-
-SF_FC_NO2_2020_2022_FILES = glob.glob(os.path.join(NO2_DIR, "cams-fc", "*.grib"))
+SF_FC_NO2_2020_2022_FILES = sorted(
+    glob.glob(os.path.join(NO2_DIR, "cams-fc", "*.grib"))
+)
 
 CL_NO2_FILES = glob.glob(os.path.join(NO2_DIR, "UK_RUS", "*.tif"))
 
 # POP
 POP_FILE = os.path.join(BASE_DIR, "pop", "uk_pop_2020.tif")
+CITY_POP = os.path.join(BASE_DIR, "pop", "city_pop.csv")
 
 # LAT LON DIR
 ERA5_LAT_FILE = os.path.join(BASE_DIR, "interp_latlon", "era5_lat.npy")

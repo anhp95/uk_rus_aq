@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import datashader as dsh
 import matplotlib.lines as mlines
 import random
+import pandas as pd
 
 # import cartopy.crs as ccrs
 from datashader.mpl_ext import dsshow
@@ -25,6 +26,17 @@ def get_bound(shp_file=UK_SHP_ADM0):
     crs = geodf.crs
 
     return geometry, crs
+
+
+def get_bound_lv2():
+
+    city_pop_df = pd.read_csv(CITY_POP)
+
+    geo_df_lv2 = gpd.read_file(UK_SHP_ADM2)
+
+    merge_df = pd.merge(city_pop_df, geo_df_lv2, on="ADM2_EN", how="inner")
+
+    return merge_df[["ADM2_EN", "Population", "geometry"]], geo_df_lv2.crs
 
 
 def read_tif(tif_file):
@@ -120,3 +132,6 @@ def plot_pred_true(ds):
     transform = axis[1].transAxes
     line.set_transform(transform)
     axis[1].add_line(line)
+
+
+# %%
