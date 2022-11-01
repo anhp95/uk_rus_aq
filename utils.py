@@ -36,6 +36,10 @@ def get_bound_lv2():
 
     merge_df = pd.merge(city_pop_df, geo_df_lv2, on="ADM2_EN", how="inner")
 
+    merge_df = gpd.GeoDataFrame(
+        merge_df, crs=geo_df_lv2.crs, geometry=merge_df.geometry
+    )
+
     return merge_df[["ADM2_EN", "Population", "geometry"]], geo_df_lv2.crs
 
 
@@ -77,7 +81,7 @@ def plot_s5p_no2_year(s5p_nc):
         plt.title(f"{y}", fontsize=18)
 
 
-def plot(lon, lat):
+def plot_train_test(lon, lat):
     lonlat = zip(lon, lat)
 
     list_lonlat = list(lonlat)

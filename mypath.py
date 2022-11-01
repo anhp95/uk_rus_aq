@@ -15,6 +15,7 @@ CONFLICT_XLS = os.path.join(CONFLICT_DIR, "Ukraine_Black_Sea_2020_2022_Oct07.xls
 
 BOUND_DIR = os.path.join(BASE_DIR, "uk_bound", "ukr_adm_sspe_20221005")
 UK_SHP_ADM0 = os.path.join(BOUND_DIR, "ukr_admbnda_adm0_sspe_20221005.shp")
+UK_SHP_ADM1 = os.path.join(BOUND_DIR, "ukr_admbnda_adm1_sspe_20221005.shp")
 UK_SHP_ADM2 = os.path.join(BOUND_DIR, "ukr_admbnda_adm2_sspe_20221005.shp")
 
 POWERPLANT_DIR = os.path.join(BASE_DIR, "ukraine_powerplant")
