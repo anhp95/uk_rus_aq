@@ -22,9 +22,9 @@ def plot_adm1_polygon(org_ds, year):
     ds = ds.rio.write_crs("epsg:4326", inplace=True)
     ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
 
-    bound_lv2 = gpd.read_file(UK_SHP_ADM3)
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     sd_ed = PERIOD_DICT[year]
-    adm_col = "ADM3_EN"
+    adm_col = "ADM2_EN"
 
     dict_no2_change = {}
     list_adm1 = bound_lv2[adm_col].values
@@ -36,18 +36,19 @@ def plot_adm1_polygon(org_ds, year):
         ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
 
         for adm1 in list_adm1:
-            geometry = bound_lv2.loc[bound_lv2[adm_col] == adm1].geometry
-            adm_ds = (
-                ds.rio.clip(geometry, bound_lv2.crs)
-                .mean(dim=["lat", "lon"])
-                .sel(time=slice(sd, ed))
-                .mean("time")[["s5p_no2_pred", "s5p_no2"]]
-            )
-            dict_no2_change[tk].append(
-                (adm_ds["s5p_no2"].item() - adm_ds["s5p_no2_pred"].item())
-                * 100
-                / adm_ds["s5p_no2_pred"].item()
-            )
+            if adm1 != "Vilinska":
+                geometry = bound_lv2.loc[bound_lv2[adm_col] == adm1].geometry
+                adm_ds = (
+                    ds.rio.clip(geometry, bound_lv2.crs)
+                    .mean(dim=["lat", "lon"])
+                    .sel(time=slice(sd, ed))
+                    .mean("time")[["s5p_no2_pred", "s5p_no2"]]
+                )
+                dict_no2_change[tk].append(
+                    (adm_ds["s5p_no2"].item() - adm_ds["s5p_no2_pred"].item())
+                    * 100
+                    / adm_ds["s5p_no2_pred"].item()
+                )
         bound_lv2[tk] = dict_no2_change[tk]
     for tk in sd_ed.keys():
         figure, ax = plt.subplots(figsize=(16, 8))
