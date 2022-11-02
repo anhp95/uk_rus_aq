@@ -2,14 +2,9 @@
 import pandas as pd
 import xarray as xr
 import random
-import geopandas as gpd
-import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import os
-import geoplot as gplt
-import geoplot.crs as gcrs
-import mapclassify as mc
 
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
@@ -20,6 +15,8 @@ from const import CAMS_COLS
 from mypath import *
 from const import *
 from utils import *
+
+from fig_plt import *
 
 
 class Dataset(object):
@@ -213,100 +210,10 @@ class Dataset(object):
         self.dw_2022 = self.df_2022.set_index(["time", "lat", "lon"]).to_xarray()
 
 
-def plot_city_bubble(org_ds, year):
-
-    if year == 2020:
-        ds = org_ds.dw_2020
-    elif year == 2021:
-        ds = org_ds.dw_2021
-    else:
-        ds = org_ds.dw_2022
-
-    ds = ds.rio.write_crs("epsg:4326", inplace=True)
-    ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
-
-    bound_lv0 = gpd.read_file(UK_SHP_ADM0)
-    bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-    bound_lv2, crs = get_bound_lv2()
-
-    list_city = bound_lv2["ADM2_EN"].values
-    sd_ed = {
-        "Jan": {"sd": "01", "sm": "01", "ed": "01", "em": "02"},
-        "Feb_bf_war": {"sd": "01", "sm": "02", "ed": 24, "em": "02"},
-        "Feb_war": {"sd": 24, "sm": "02", "ed": "01", "em": "03"},
-        "Mar": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
-        "Apr": {"sd": "01", "sm": "04", "ed": "01", "em": "05"},
-        "May": {"sd": "01", "sm": "05", "ed": "01", "em": "06"},
-        "Jun": {"sd": "01", "sm": "06", "ed": "01", "em": "07"},
-        "Jul": {"sd": "01", "sm": "07", "ed": "01", "em": "08"},
-    }
-    dict_no2_change = {}
-
-    for tk in sd_ed.keys():
-
-        dict_no2_change[tk] = []
-
-        t = sd_ed[tk]
-        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
-
-        for city in list_city:
-
-            geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
-            city_ds = (
-                ds.rio.clip(geometry, crs)
-                .mean(dim=["lat", "lon"])
-                .sel(time=slice(sd, ed))
-                .mean("time")[["s5p_no2_pred", "s5p_no2"]]
-            )
-            dict_no2_change[tk].append(
-                (city_ds["s5p_no2"].item() - city_ds["s5p_no2_pred"].item())
-                * 100
-                / city_ds["s5p_no2"].item()
-            )
-
-    df_no2_change = pd.DataFrame.from_dict(dict_no2_change)
-    df_no2_change["Population"] = bound_lv2["Population"].values
-    geo_df = gpd.GeoDataFrame(
-        df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
-    )
-    scheme = mc.Quantiles(geo_df['Population'], k=5)
-    for col in sd_ed.keys():
-
-        ax = gplt.polyplot(bound_lv0, projection=gcrs.WebMercator())
-        gplt.pointplot(
-            geo_df,
-            scale="Population",
-            hue=col,
-            cmap="viridis",
-            legend=True,
-            legend_var="hue",
-            scheme=scheme,
-            ax=ax,
-        )
-        plt.title(col)
-    return geo_df
-
-
-def plot_city_line(ds):
-    ds = ds.rio.write_crs("epsg:4326", inplace=True)
-    ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
-    bound_lv2, crs = get_bound_lv2()
-    city_no2 = {}
-    for i, city in enumerate(bound_lv2["ADM2_EN"].values):
-        fig = plt.figure(1 + i, figsize=(16, 8))
-        ax = plt.subplot(1, 1, 1)
-        geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
-        ds_clip = ds.rio.clip(geometry, crs).mean(dim=["lat", "lon"])[
-            ["s5p_no2_pred", "s5p_no2"]
-        ]
-        city_no2[city] = ds_clip
-        df = ds_clip.to_dataframe()
-        df[["s5p_no2_pred", "s5p_no2"]].plot.line(ax=ax)
-        ax.set_title(f"{city}")
-
-
 if __name__ == "__main__":
 
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
     # plot_pred_true(ds)
+    plot_city_bubble(ds, 2022)
+
+# %%
