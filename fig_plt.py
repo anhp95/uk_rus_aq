@@ -10,7 +10,25 @@ from utils import *
 from const import *
 
 
-def plot_adm1_polygon(org_ds, year):
+def prep_ds(ds):
+    ds = ds.rio.write_crs("epsg:4326", inplace=True)
+    ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+
+    return ds
+
+def plot_obs_year_top_pop(org_ds):
+    return
+
+
+def plot_obs_year_adm2(org_ds):
+
+    sd_ed = PERIOD_DICT[2022]
+
+    for tk in sd_ed.keys():
+
+
+
+def plot_obs_bau_adm2(org_ds, year):
 
     if year == 2020:
         ds = org_ds.dw_2020
@@ -18,9 +36,9 @@ def plot_adm1_polygon(org_ds, year):
         ds = org_ds.dw_2021
     else:
         ds = org_ds.dw_2022
-
-    ds = ds.rio.write_crs("epsg:4326", inplace=True)
-    ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+    
+    ds = prep_ds(ds)
+    
 
     bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     sd_ed = PERIOD_DICT[year]
@@ -64,7 +82,7 @@ def plot_adm1_polygon(org_ds, year):
         plt.title(tk, fontsize=18)
 
 
-def plot_city_bubble(org_ds, year):
+def plot_obs_bau_top_pop(org_ds, year):
 
     if year == 2020:
         ds = org_ds.dw_2020
@@ -73,8 +91,7 @@ def plot_city_bubble(org_ds, year):
     else:
         ds = org_ds.dw_2022
 
-    ds = ds.rio.write_crs("epsg:4326", inplace=True)
-    ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+    ds = prep_ds(ds)
 
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
     bound_lv2, crs = get_bound_pop_lv2()
