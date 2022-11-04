@@ -214,6 +214,6 @@ if __name__ == "__main__":
 
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
     # plot_pred_true(ds)
-    plot_city_bubble(ds, 2022)
+    plot_obs_bau_adm2(ds, 2022)
 
 # %%
