@@ -162,12 +162,15 @@ def plot_obs_pop_bubble():
 
 
 def plot_obs_adm2_map():
+    org_ds = prep_s5p_ds()
+
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     return
 
 
 def plot_obs_bau_adm2_map(org_ds, year):
 
-    ds = prep_ds(org_ds)
+    ds = prep_ds(org_ds, year)
 
     bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     sd_ed = PERIOD_DICT[year]
@@ -296,13 +299,14 @@ def plot_obs_bau_pop_bubble(org_ds, year):
 def plot_obs_bau_pop_line(ds):
     ds = ds.rio.write_crs("epsg:4326", inplace=True)
     ds = ds.rio.set_spatial_dims("lon", "lat", inplace=True)
-    bound_lv2, crs = get_bound_pop_lv2()
+    # bound_lv2, crs = get_bound_pop_lv2()
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     city_no2 = {}
     for i, city in enumerate(bound_lv2["ADM2_EN"].values):
         fig = plt.figure(1 + i, figsize=(16, 8))
         ax = plt.subplot(1, 1, 1)
         geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
-        ds_clip = ds.rio.clip(geometry, crs).mean(dim=["lat", "lon"])[
+        ds_clip = ds.rio.clip(geometry, bound_lv2.crs).mean(dim=["lat", "lon"])[
             ["s5p_no2_pred", "s5p_no2"]
         ]
         city_no2[city] = ds_clip

@@ -5,6 +5,7 @@ import random
 import numpy as np
 import pickle
 import os
+import seaborn
 
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
@@ -25,6 +26,9 @@ class Dataset(object):
 
     train_geo_path = TRAIN_GEO
     test_geo_path = TEST_GEO
+    pfm_path = PFM_PATH
+    rate_train = 0.5
+    rate_test = rate_train / 5
 
     def __init__(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc) -> None:
 
@@ -44,9 +48,10 @@ class Dataset(object):
 
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
         self.extract_list_geo()
-        self.extract_train_test_lonlat()
-        self.extract_train_test()
-        self.build_de_weather_model()
+        self.train_de_weather_model(10)
+        # self.extract_train_test_lonlat()
+        # self.extract_train_test()
+        # self.load_de_weather_model()
         self.to_df()
         self.de_weather()
 
@@ -78,22 +83,14 @@ class Dataset(object):
         self.list_geo = list(zip(lat, lon))
 
     def extract_train_test_lonlat(self):
-        if os.path.exists(self.train_geo_path) and os.path.exists(self.test_geo_path):
-            self.train_geo = pickle.load(open(self.train_geo_path, "rb"))
-            self.test_geo = pickle.load(open(self.test_geo_path, "rb"))
 
-        else:
+        list_geo = self.list_geo.copy()
+        self.test_geo = random.sample(list_geo, int(len(list_geo) * self.rate_test))
 
-            list_geo = self.list_geo.copy()
-            self.test_geo = random.sample(list_geo, int(len(list_geo) * 0.05))
+        [list_geo.remove(x) for x in self.test_geo]
+        train = random.sample(list_geo, int(len(list_geo) * self.rate_train))
 
-            [list_geo.remove(x) for x in self.test_geo]
-            train = random.sample(list_geo, int(len(list_geo) * 0.25))
-
-            self.train_geo = [x for x in train if x not in self.test_geo]
-
-            pickle.dump(self.train_geo, open(self.train_geo_path, "wb"))
-            pickle.dump(self.test_geo, open(self.test_geo_path, "wb"))
+        self.train_geo = [x for x in train if x not in self.test_geo]
 
     def reform_data(self, year, list_geo):
 
@@ -146,7 +143,89 @@ class Dataset(object):
         self.train_2019 = train_2019.dropna()
         self.test_2019 = test_2019.dropna()
 
-    def build_de_weather_model(self):
+    def extract_Xy_train_test(self):
+        X_train = self.train_2019.drop(columns=["s5p_no2", "time"]).values
+        X_test = self.test_2019.drop(columns=["s5p_no2", "time"]).values
+
+        y_train = self.train_2019["s5p_no2"].values
+        y_test = self.test_2019["s5p_no2"].values
+
+        return X_train, y_train, X_test, y_test
+
+    def train_de_weather_model(self, n_test):
+        if not os.path.exists(self.train_geo_path) and not os.path.exists(
+            self.test_geo_path
+        ):
+            r2_best = 0
+            pfm_dict = {}
+            pfm_dict["r2_score"] = []
+            pfm_dict["mse_score"] = []
+            pfm_dict["type"] = []
+            for n in range(n_test):
+                self.extract_train_test_lonlat()
+                self.extract_train_test()
+
+                X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
+
+                self.de_weather_model = RandomForestRegressor()
+                self.de_weather_model = self.de_weather_model.fit(X_train, y_train)
+
+                y_pred = self.de_weather_model.predict(X_test)
+                y_pred_train = self.de_weather_model.predict(X_train)
+
+                mse_test = mean_squared_error(y_test, y_pred)
+                mse_train = mean_squared_error(y_train, y_pred_train)
+
+                r2_test = r2_score(y_test, y_pred)
+                r2_train = r2_score(y_train, y_pred_train)
+
+                pfm_dict["r2_score"].append(r2_test)
+                pfm_dict["mse_score"].append(mse_test)
+                pfm_dict["type"].append("test")
+
+                pfm_dict["r2_score"].append(r2_train)
+                pfm_dict["mse_score"].append(mse_train)
+                pfm_dict["type"].append("train")
+
+                if r2_test > r2_best:
+                    r2_best = r2_test
+
+                    pickle.dump(
+                        self.de_weather_model, open(self.de_weather_model_path, "wb")
+                    )
+                    pickle.dump(self.train_geo, open(self.train_geo_path, "wb"))
+                    pickle.dump(self.test_geo, open(self.test_geo_path, "wb"))
+            pfm_df = pd.DataFrame.from_dict(pfm_dict)
+            sns.violinplot(data=pfm_df, x="type", y="r2_score")
+            pfm_df.to_csv(self.pfm_path)
+
+        self.train_geo = pickle.load(open(self.train_geo_path, "rb"))
+        self.test_geo = pickle.load(open(self.test_geo_path, "rb"))
+        self.de_weather_model = pickle.load(open(self.de_weather_model_path, "rb"))
+
+        self.extract_train_test()
+        X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
+        y_pred = self.de_weather_model.predict(X_test)
+        y_pred_train = self.de_weather_model.predict(X_train)
+
+        print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
+        print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
+
+        print(f"r2 score test: {r2_score(y_test, y_pred)}")
+        print(f"r2 score train: {r2_score(y_train, y_pred_train)}")
+
+        print("-------test pcc ---------")
+        print(linregress(y_pred, y_test))
+
+        print("-------train pcc-----------")
+        print(linregress(y_pred_train, y_train))
+
+        # plot
+        self.test_2019["s5p_no2_pred"] = y_pred
+
+        return y_pred, y_test, y_pred_train, y_train
+
+    def load_de_weather_model(self):
 
         train = self.train_2019
         test = self.test_2019
@@ -214,6 +293,6 @@ if __name__ == "__main__":
 
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
     # plot_pred_true(ds)
-    plot_obs_bau_adm2(ds, 2022)
+    plot_obs_bau_adm2_map(ds, 2022)
 
 # %%

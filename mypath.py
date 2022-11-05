@@ -64,5 +64,6 @@ DE_WEATHER_DIR = "de_weather_model"
 DE_WEATHER_MODEL = os.path.join(DE_WEATHER_DIR, "model.sav")
 TRAIN_GEO = os.path.join(DE_WEATHER_DIR, "train_geo.pkl")
 TEST_GEO = os.path.join(DE_WEATHER_DIR, "test_geo.pkl")
+PFM_PATH = os.path.join(DE_WEATHER_DIR, "pfm.csv")
 
 # %%
