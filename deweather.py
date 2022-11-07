@@ -27,8 +27,8 @@ class Dataset(object):
     train_geo_path = TRAIN_GEO
     test_geo_path = TEST_GEO
     pfm_path = PFM_PATH
-    rate_train = 0.5
-    rate_test = rate_train / 5
+    rate_train = 0.32
+    rate_test = rate_train / 4
 
     def __init__(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc) -> None:
 
@@ -293,6 +293,8 @@ if __name__ == "__main__":
 
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
     # plot_pred_true(ds)
-    plot_obs_bau_adm2_map(ds, 2022)
+    # plot_obs_bau_adm2_map(ds, 2022)
+    # plot_obs_bau_adm2_map(ds, 2021)
+    # plot_obs_bau_adm2_map(ds, 2020)
 
 # %%

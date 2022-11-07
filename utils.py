@@ -1,7 +1,7 @@
 #%%
 
 import xarray as xr
-import rioxarray as rioxr # conflcict package seaborn conda remove seaborn
+import rioxarray as rioxr  # conflcict package seaborn conda remove seaborn
 import cfgrib
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -42,16 +42,38 @@ def get_bound_pop_lv2():
     return merge_df[["ADM2_EN", "Population", "geometry"]], geo_df_lv2.crs
 
 
-# def read_tif(tif_file):
+def read_tif(tif_file):
 
-#     rio_ds = rioxr.open_rasterio(tif_file)
-#     return rio_ds.rename({"x": "lon", "y": "lat"})
+    rio_ds = rioxr.open_rasterio(tif_file)
+    return rio_ds.rename({"x": "lon", "y": "lat"})
 
 
 def read_grib(grib_file):
 
     grib_ds = cfgrib.open_dataset(grib_file)
     return grib_ds.rename({"longitude": "lon", "latitude": "lat"})
+
+
+def prep_ds(org_ds, year):
+
+    if year == 2020:
+        ds = org_ds.dw_2020
+    elif year == 2021:
+        ds = org_ds.dw_2021
+    else:
+        ds = org_ds.dw_2022
+
+    ds = ds.rio.write_crs("epsg:4326", inplace=True)
+    return ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+
+
+def prep_s5p_ds():
+    org_ds = xr.open_dataset(S5P_NO2_NC)
+    var_name = list(org_ds.keys())[0]
+    org_ds = org_ds.rename(name_dict={var_name: "s5p_no2"})
+    org_ds = org_ds.rio.write_crs("epsg:4326", inplace=True)
+    org_ds = org_ds.rio.set_spatial_dims("lon", "lat", inplace=True)
+    return org_ds
 
 
 # %%
