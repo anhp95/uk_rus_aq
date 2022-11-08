@@ -59,9 +59,11 @@ def plot_obs_bubble():
     adm_col = "ADM2_EN"
     list_city = bound_lv2[adm_col].values
 
-    sd_ed = PERIOD_DICT[2022]
+    # sd_ed = PERIOD_DICT[2022]
+    sd_ed = PERIOD_DICT[2020]
 
-    years = [2019, 2020, 2021, 2022]
+    # years = [2019, 2020, 2021, 2022]
+    years = [2019, 2020]
 
     obs_dict_year = {}
 
@@ -86,8 +88,8 @@ def plot_obs_bubble():
     change_dict = {}
     for y in years[:-1]:
         for tk in sd_ed.keys():
-            change_dict[f"OBS_2022_{y}_{tk}"] = (
-                (bound_lv2[f"2022_{tk}"] - bound_lv2[f"{y}_{tk}"])
+            change_dict[f"OBS_2020_{y}_{tk}"] = (
+                (bound_lv2[f"2020_{tk}"] - bound_lv2[f"{y}_{tk}"])
                 * 100
                 / bound_lv2[f"{y}_{tk}"]
             )
@@ -241,7 +243,9 @@ def plot_obs_change_map():
             sd_y = np.datetime64(f"{y}-{t['sm']}-{t['sd']}T00:00:00.000000000")
             ed_y = np.datetime64(f"{y}-{t['em']}-{t['ed']}T00:00:00.000000000")
 
-            ds_event = org_ds.sel(time=slice(sd_event, ed_event)).mean("time")[["s5p_no2"]]
+            ds_event = org_ds.sel(time=slice(sd_event, ed_event)).mean("time")[
+                ["s5p_no2"]
+            ]
             ds_y = org_ds.sel(time=slice(sd_y, ed_y)).mean("time")[["s5p_no2"]]
 
             ds_change = (ds_event["s5p_no2"] - ds_y["s5p_no2"]) * 100 / ds_y["s5p_no2"]
