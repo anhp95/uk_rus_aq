@@ -9,6 +9,7 @@ import numpy as np
 from utils import *
 from const import *
 
+#%%
 # Bubble plot
 def plot_change_bubble(geo_df, cols):
     cmap = "bwr"
@@ -208,7 +209,7 @@ def plot_obs_bau_map(org_ds, year):
 
         figure, ax = plt.subplots(figsize=(16, 8))
         bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-        bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
+        bound_lv0 = gpd.read_file(UK_SHP_ADM0)
 
         change_ds.plot(
             ax=ax,
@@ -217,6 +218,10 @@ def plot_obs_bau_map(org_ds, year):
             vmax=70,
             cbar_kwargs={"label": r"NO$_{2}$ col. change (%)"},
         )
+        bound_lv1.plot(ax=ax, facecolor="None", edgecolor="black", lw=0.4)
+        bound_lv0.plot(ax=ax, facecolor="None", edgecolor="black", lw=2)
+        plt.xlim([22, 41])
+        plt.ylim([44, 53])
         plt.title(tk, fontsize=18)
 
 
@@ -473,3 +478,43 @@ def plot_obs_bau_adm2(org_ds, year):
             legend_kwds={"label": r"NO$_{2}$ col. change (%)"},
         )
         plt.title(tk, fontsize=18)
+
+
+#%%
+# Plot fire location and conflict point
+
+
+def plot_fire_conflict(year, data_type="Fire Spot"):
+
+    data_df = prep_fire_df() if data_type == "Fire Spot" else prep_conflict_df()
+    color = "orange" if data_type == "Fire Spot" else "red"
+
+    nucl_gdf = gpd.read_file(UK_NUC_SHP)
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+
+    bound_lv0 = gpd.read_file(UK_SHP_ADM0)
+    bound_lv1 = gpd.read_file(UK_SHP_ADM1)
+
+    sd_ed = PERIOD_DICT[year]
+
+    for tk in sd_ed.keys():
+
+        t = sd_ed[tk]
+        figure, ax = plt.subplots(figsize=(16, 8))
+
+        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
+        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
+
+        mask = (data_df["DATETIME"] > sd) & (data_df["DATETIME"] <= ed)
+        df = data_df.loc[mask]
+
+        df.plot(ax=ax, color=color, markersize=10, label=data_type)
+        nucl_gdf.plot(ax=ax, color="green", markersize=100, label="Nuclear")
+        coal_gdf.plot(ax=ax, color="blue", markersize=100, label="Coal")
+        bound_lv1.plot(ax=ax, facecolor="None", edgecolor="black", lw=0.4)
+        bound_lv0.plot(ax=ax, facecolor="None", edgecolor="black", lw=2)
+        ax.legend()
+        plt.title(tk, fontsize=18)
+
+
+# %%

@@ -7,7 +7,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import datashader as dsh
 import matplotlib.lines as mlines
-import random
+import geopandas as gpd
 import pandas as pd
 
 from datashader.mpl_ext import dsshow
@@ -74,6 +74,38 @@ def prep_s5p_ds():
     org_ds = org_ds.rio.write_crs("epsg:4326", inplace=True)
     org_ds = org_ds.rio.set_spatial_dims("lon", "lat", inplace=True)
     return org_ds
+
+
+def prep_location_df(csv_path):
+
+    df = pd.read_csv(csv_path)
+    return gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(df["LONGITUDE"], df["LATITUDE"])
+    )
+
+
+def prep_fire_df():
+
+    fire_war_gdf = prep_location_df(FIRE_WARTIME_CSV)
+    fire_2021_gdf = prep_location_df(FIRE_2021_CSV)
+    fire_2020_gdf = prep_location_df(FIRE_2020_CSV)
+
+    fire_df = pd.concat([fire_war_gdf, fire_2021_gdf, fire_2020_gdf], ignore_index=True)
+
+    fire_df["DATETIME"] = pd.to_datetime(fire_df["DATETIME"])
+
+    return fire_df
+
+
+def prep_conflict_df():
+
+    battle_gdf = prep_location_df(BATTLE_CSV)
+    expls_gdf = prep_location_df(EXPLOSION_CSV)
+
+    conflict_df = pd.concat([battle_gdf, expls_gdf], ignore_index=True)
+    conflict_df["DATETIME"] = pd.to_datetime(conflict_df["EVENT_DATETIME"])
+
+    return conflict_df
 
 
 # %%

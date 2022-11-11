@@ -4,14 +4,20 @@ import glob
 
 BASE_DIR = "data"
 
-VIIR_DIR = os.path.join(BASE_DIR, "DL_FIRE_J1V-C2_302419")
+VIIR_DIR = os.path.join(BASE_DIR, "fire_count", "DL_FIRE_J1V-C2_302419")
 
 FIRE_2020_SHP = os.path.join(VIIR_DIR, "fire_nrt_J1V-C2_302419-b4war-2020.shp")
 FIRE_2021_SHP = os.path.join(VIIR_DIR, "fire_nrt_J1V-C2_302419-b4war-2021.shp")
 FIRE_WARTIME_SHP = os.path.join(VIIR_DIR, "fire_nrt_J1V-C2_302419-wartime.shp")
 
+FIRE_2020_CSV = os.path.join(VIIR_DIR, "fire-b4war-2020.csv")
+FIRE_2021_CSV = os.path.join(VIIR_DIR, "fire-b4war-2021.csv")
+FIRE_WARTIME_CSV = os.path.join(VIIR_DIR, "fire_nrt_J1V-C2_302419-wartime.csv")
+
 CONFLICT_DIR = os.path.join(BASE_DIR, "conflict_location")
 CONFLICT_XLS = os.path.join(CONFLICT_DIR, "Ukraine_Black_Sea_2020_2022_Oct07.xlsx")
+BATTLE_CSV = os.path.join(CONFLICT_DIR, "Battles.csv")
+EXPLOSION_CSV = os.path.join(CONFLICT_DIR, "Explosions_Remote violence.csv")
 
 BOUND_DIR = os.path.join(BASE_DIR, "uk_bound", "ukr_adm_sspe_20221005")
 UK_SHP_ADM0 = os.path.join(BOUND_DIR, "ukr_admbnda_adm0_sspe_20221005.shp")
