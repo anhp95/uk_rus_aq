@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-
 from utils import *
 from const import *
 
@@ -335,7 +334,7 @@ def plot_obs_bau_pop_line(org_ds, year):
         ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
 
     for i, city in enumerate(bound_lv2["ADM2_EN"].values):
-        fig = plt.figure(1 + i, figsize=(16, 8))
+        fig = plt.figure(1 + i, figsize=(6, 4))
         ax = plt.subplot(1, 1, 1)
         geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
         ds_clip = (
@@ -345,14 +344,16 @@ def plot_obs_bau_pop_line(org_ds, year):
         )
         city_no2[city] = ds_clip
         df = ds_clip.to_dataframe()
-        df = df.rolling(5).mean()
-        df = df.iloc[::5, :]
-        df[["s5p_no2_pred", "s5p_no2"]].plot.line(ax=ax)
+        df = df.rolling(7).mean()
+        df = df.iloc[::7, :]
+        df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
+        df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
         if year == 2020:
             ax.axvline(x=np.datetime64(f"{year}-03-25T00:00:00.000000000"), color="r")
             ax.axvline(x=np.datetime64(f"{year}-05-11T00:00:00.000000000"), color="r")
         if year == 2022:
             ax.axvline(x=np.datetime64(f"{year}-02-24T00:00:00.000000000"), color="r")
+        ax.axhline(y=0, linewidth=4, color="black")
         ax.set_title(f"{city}")
 
 
