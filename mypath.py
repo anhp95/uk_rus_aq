@@ -27,7 +27,7 @@ UK_SHP_ADM3 = os.path.join(BOUND_DIR, "ukr_admbnda_adm3_sspe_20221005.shp")
 
 POWERPLANT_DIR = os.path.join(BASE_DIR, "ukraine_powerplant")
 UK_NUC_SHP = os.path.join(POWERPLANT_DIR, "nuclear.shp")
-UK_COAL_SHP = os.path.join(POWERPLANT_DIR, "coal.shp")
+UK_COAL_SHP = os.path.join(POWERPLANT_DIR, "Coal_GlobalEDB.shp")
 
 # CLIMATE
 CLIMATE_DIR = os.path.join(BASE_DIR, "climate")

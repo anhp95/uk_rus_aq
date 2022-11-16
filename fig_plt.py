@@ -191,7 +191,7 @@ def plot_obs_bau_bubble(org_ds, year):
 def plot_obs_bau_map(org_ds, year):
 
     ds = prep_ds(org_ds, year)
-
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
     sd_ed = PERIOD_DICT[year]
     adm_col = "ADM2_EN"
 
@@ -219,6 +219,8 @@ def plot_obs_bau_map(org_ds, year):
         )
         bound_lv1.plot(ax=ax, facecolor="None", edgecolor="black", lw=0.4)
         bound_lv0.plot(ax=ax, facecolor="None", edgecolor="black", lw=2)
+        coal_gdf.plot(ax=ax, color="gray", markersize=30, label="Coal")
+        plt.legend()
         plt.xlim([22, 41])
         plt.ylim([44, 53])
         plt.title(tk, fontsize=18)
@@ -273,12 +275,12 @@ def plot_trend_line(ds, title):
 
     import matplotlib.dates as mdates
 
-    # month_day_fmt = mdates.DateFormatter("%b %d")
-    figure, ax = plt.subplots(figsize=(16, 8))
+    month_day_fmt = mdates.DateFormatter("%b %d")
+    figure, ax = plt.subplots(figsize=(6, 4))
 
     years = [2020, 2021, 2022]
 
-    sd = np.datetime64(f"2019-02-01T00:00:00.000000000")
+    sd = np.datetime64(f"2019-01-01T00:00:00.000000000")
     ed = np.datetime64(f"2019-07-31T00:00:00.000000000")
     ds_2019 = ds.sel(time=slice(sd, ed)).mean(dim=["lat", "lon"])["s5p_no2"]
     # ax.plot(ds_2019.time, ds_2019.values, label="2019")
@@ -290,7 +292,7 @@ def plot_trend_line(ds, title):
     change_dict[2019] = ds_2019.values.flatten()
 
     for year in years:
-        sd = np.datetime64(f"{year}-02-01T00:00:00.000000000")
+        sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
         ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
         ds_year = ds.sel(time=slice(sd, ed)).mean(dim=["lat", "lon"])["s5p_no2"]
         y = ds_year.values[:-1] if year == 2020 else ds_year.values
@@ -298,13 +300,14 @@ def plot_trend_line(ds, title):
         # ax.plot(x, y, label=year)
 
     df = pd.DataFrame.from_dict(change_dict).fillna(0)
-    # df.set_index("time")
-    df = df.rolling(5).mean()
-    df = df.iloc[::5, :]
-    df[[2019, 2021, 2022]].plot.line(ax=ax)
+    df.set_index("time")
+    df = df.rolling(7).mean()
+    df = df.iloc[::7, :]
+    df["2019-2021"] = (df[2019] + df[2020] + df[2021]) / 3
+    df[[2019, 2022]].plot.line(ax=ax)
     ax.legend()
     ax.set_title(title)
-    # ax.xaxis.set_major_formatter(month_day_fmt)
+    ax.xaxis.set_major_formatter(month_day_fmt)
     return df
 
 
@@ -349,11 +352,45 @@ def plot_obs_bau_pop_line(org_ds, year):
         df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
         df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
         if year == 2020:
-            ax.axvline(x=np.datetime64(f"{year}-03-25T00:00:00.000000000"), color="r")
-            ax.axvline(x=np.datetime64(f"{year}-05-11T00:00:00.000000000"), color="r")
+            ax.axvline(
+                x=np.datetime64(f"{year}-03-25T00:00:00.000000000"),
+                color="r",
+                linewidth=1,
+                linestyle="--",
+            )
+            ax.axvline(
+                x=np.datetime64(f"{year}-05-11T00:00:00.000000000"),
+                color="r",
+                linewidth=1,
+                linestyle="--",
+            )
+        if year == 2021:
+            ax.axvline(
+                x=np.datetime64(f"{year}-01-08T00:00:00.000000000"),
+                color="r",
+                linewidth=1,
+                linestyle="--",
+            )
+            ax.axvline(
+                x=np.datetime64(f"{year}-01-25T00:00:00.000000000"),
+                color="r",
+                linewidth=1,
+                linestyle="--",
+            )
         if year == 2022:
-            ax.axvline(x=np.datetime64(f"{year}-02-24T00:00:00.000000000"), color="r")
-        ax.axhline(y=0, linewidth=4, color="black")
+            ax.axvline(
+                x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
+                color="r",
+                linewidth=1,
+                linestyle="--",
+            )
+        ax.axhline(
+            y=0,
+            color="black",
+            linewidth=1,
+            linestyle="--",
+        )
+        ax.grid()
         ax.set_title(f"{city}")
 
 
@@ -519,3 +556,119 @@ def plot_fire_conflict(year, data_type="Fire Spot"):
 
 
 # %%
+
+
+def plot_ax_line(ds, geometry, ppl_name, coal_gdf, ax, year):
+    sd = np.datetime64(f"{year}-02-01T00:00:00.000000000")
+    ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
+    ds_clip = (
+        ds.rio.clip(geometry, coal_gdf.crs)
+        .sel(time=slice(sd, ed))
+        .mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
+    )
+    df = ds_clip.to_dataframe()
+    df = df.rolling(5).mean()
+    df = df.iloc[::5, :]
+    df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
+    df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
+    ax.axhline(
+        y=0,
+        color="black",
+        linewidth=1,
+        linestyle="--",
+    )
+    if year == 2022:
+        ax.axvline(
+            x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
+            color="r",
+            linewidth=1,
+            linestyle="--",
+        )
+    ax.grid()
+    ax.set_title(f"{ppl_name}-{year}")
+
+
+def plot_ppl_obs_bau_line(org_ds):
+
+    # ds = prep_ds(org_ds, year)
+    ds_2020 = prep_ds(org_ds, 2020)
+    ds_2021 = prep_ds(org_ds, 2021)
+    ds_2022 = prep_ds(org_ds, 2022)
+
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+    # coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.15, cap_style=3).to_crs(
+    #     coal_gdf.crs
+    # )
+
+    ppl_no2 = {}
+
+    for i, ppl_name in enumerate(coal_gdf.name.values):
+        # ax = plt.subplot(1, 1, 1)
+
+        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
+
+        # fig = plt.figure(1 + i, figsize=(6, 4))
+        fig, ax = plt.subplots(1, 3, figsize=(16, 4))
+
+        plot_ax_line(ds_2020, geometry, ppl_name, coal_gdf, ax[0], 2020)
+        plot_ax_line(ds_2021, geometry, ppl_name, coal_gdf, ax[1], 2021)
+        plot_ax_line(ds_2022, geometry, ppl_name, coal_gdf, ax[2], 2022)
+        # ds_clip = (
+        #     ds.rio.clip(geometry, coal_gdf.crs)
+        #     .sel(time=slice(sd, ed))
+        #     .mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
+        # )
+        # ppl_no2[ppl_name] = ds_clip
+        # df = ds_clip.to_dataframe()
+        # df = df.rolling(7).mean()
+        # df = df.iloc[::7, :]
+        # df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
+        # df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
+        # ax.axhline(
+        #     y=0,
+        #     color="black",
+        #     linewidth=1,
+        #     linestyle="--",
+        # )
+        # if year == 2022:
+        #     ax.axvline(
+        #         x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
+        #         color="r",
+        #         linewidth=1,
+        #         linestyle="--",
+        #     )
+        # ax.grid()
+        # ax.set_title(f"{ppl_name}-{year}")
+
+
+def plot_ppl_obs_line():
+
+    org_ds = prep_s5p_ds()
+    years = [2019, 2020, 2021, 2022]
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.15, cap_style=3).to_crs(
+        coal_gdf.crs
+    )
+    for i, ppl_name in enumerate(coal_gdf.name.values):
+        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
+        ds_clip = org_ds.rio.clip(geometry, coal_gdf.crs).mean(dim=["lat", "lon"])[
+            "s5p_no2"
+        ]
+        ds_city = org_ds.rio.clip(geometry, coal_gdf.crs)
+        df = plot_trend_line(ds_city, ppl_name)
+
+
+def plot_weather_params(ds):
+    year = 2019
+    sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
+    ed = np.datetime64(f"{year}-03-31T00:00:00.000000000")
+    ts = ds.era5.sel(time=slice(sd, ed))
+
+    year = 2022
+    sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
+    ed = np.datetime64(f"{year}-03-31T00:00:00.000000000")
+    ts_2022 = ds.era5.sel(time=slice(sd, ed))
+
+    figure, ax = plt.subplots(figsize=(10, 6))
+    xr.plot.hist(ts_2022["d2m"], ec="b", fc="None", histtype="step")
+    xr.plot.hist(ts["d2m"], ec="r", fc="None", histtype="step")

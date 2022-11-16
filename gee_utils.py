@@ -95,7 +95,7 @@ def download_pop():
         .filter(ee.Filter.eq("year", 2020))
         .mosaic()
     )
-    export2drive(dataset, "uk_pop_2020")
+    export2drive(pop, "uk_pop_2020")
 
 
 # %%

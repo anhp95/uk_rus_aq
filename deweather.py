@@ -49,9 +49,6 @@ class Dataset(object):
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
         self.extract_list_geo()
         self.train_de_weather_model(10)
-        # self.extract_train_test_lonlat()
-        # self.extract_train_test()
-        # self.load_de_weather_model()
         self.to_df()
         self.de_weather()
 
@@ -205,44 +202,6 @@ class Dataset(object):
 
         self.extract_train_test()
         X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
-        y_pred = self.de_weather_model.predict(X_test)
-        y_pred_train = self.de_weather_model.predict(X_train)
-
-        print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
-        print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
-
-        print(f"r2 score test: {r2_score(y_test, y_pred)}")
-        print(f"r2 score train: {r2_score(y_train, y_pred_train)}")
-
-        print("-------test pcc ---------")
-        print(linregress(y_pred, y_test))
-
-        print("-------train pcc-----------")
-        print(linregress(y_pred_train, y_train))
-
-        # plot
-        self.test_2019["s5p_no2_pred"] = y_pred
-
-        return y_pred, y_test, y_pred_train, y_train
-
-    def load_de_weather_model(self):
-
-        train = self.train_2019
-        test = self.test_2019
-
-        X_train = train.drop(columns=["s5p_no2", "time"]).values
-        X_test = test.drop(columns=["s5p_no2", "time"]).values
-
-        y_train = train["s5p_no2"].values
-        y_test = test["s5p_no2"].values
-
-        if os.path.exists(self.de_weather_model_path):
-            self.de_weather_model = pickle.load(open(self.de_weather_model_path, "rb"))
-        else:
-            self.de_weather_model = RandomForestRegressor()
-            self.de_weather_model = self.de_weather_model.fit(X_train, y_train)
-            pickle.dump(self.de_weather_model, open(self.de_weather_model_path, "wb"))
-
         y_pred = self.de_weather_model.predict(X_test)
         y_pred_train = self.de_weather_model.predict(X_train)
 
