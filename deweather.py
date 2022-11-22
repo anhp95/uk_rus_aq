@@ -5,10 +5,10 @@ import random
 import numpy as np
 import pickle
 import os
-import seaborn
 
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
 
 from const import CAMS_COLS
@@ -27,7 +27,7 @@ class Dataset(object):
     train_geo_path = TRAIN_GEO
     test_geo_path = TEST_GEO
     pfm_path = PFM_PATH
-    rate_train = 0.32
+    rate_train = 0.8
     rate_test = rate_train / 4
 
     def __init__(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc) -> None:
@@ -44,10 +44,12 @@ class Dataset(object):
         self.train_2019 = pd.DataFrame()
         self.test_2019 = pd.DataFrame()
 
+        self.best_params = {}
         self.de_weather_model = None
 
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
         self.extract_list_geo()
+        # self.params_search()
         self.train_de_weather_model(10)
         self.to_df()
         self.de_weather()
@@ -149,6 +151,17 @@ class Dataset(object):
 
         return X_train, y_train, X_test, y_test
 
+    def params_search(self):
+        tunned_parameters = RANDOM_GRID
+        grid_search = GridSearchCV(
+            RandomForestRegressor(), tunned_parameters, scoring="r2", cv=5, n_jobs=-1
+        )
+        data_2019 = self.reform_data(2019, self.list_geo).dropna()
+        X = data_2019.drop(columns=["s5p_no2", "time"]).values
+        y = data_2019["s5p_no2"].values
+        grid_search.fit(X, y)
+        self.best_params = grid_search.best_params_
+
     def train_de_weather_model(self, n_test):
         if not os.path.exists(self.train_geo_path) and not os.path.exists(
             self.test_geo_path
@@ -159,12 +172,15 @@ class Dataset(object):
             pfm_dict["mse_score"] = []
             pfm_dict["type"] = []
             for n in range(n_test):
+                print(f"n-test:{n}")
                 self.extract_train_test_lonlat()
                 self.extract_train_test()
 
                 X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
 
-                self.de_weather_model = RandomForestRegressor()
+                self.de_weather_model = RandomForestRegressor(
+                    n_estimators=400, min_samples_leaf=7, n_jobs=-1
+                )
                 self.de_weather_model = self.de_weather_model.fit(X_train, y_train)
 
                 y_pred = self.de_weather_model.predict(X_test)
@@ -249,7 +265,6 @@ class Dataset(object):
 
 
 if __name__ == "__main__":
-
     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
     # plot_pred_true(ds)
     # plot_obs_bau_adm2_map(ds, 2022)

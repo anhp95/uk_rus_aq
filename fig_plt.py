@@ -301,8 +301,8 @@ def plot_trend_line(ds, title):
 
     df = pd.DataFrame.from_dict(change_dict).fillna(0)
     df.set_index("time")
-    df = df.rolling(7).mean()
-    df = df.iloc[::7, :]
+    df = df.rolling(3).mean()
+    df = df.iloc[::3, :]
     df["2019-2021"] = (df[2019] + df[2020] + df[2021]) / 3
     df[[2019, 2022]].plot.line(ax=ax)
     ax.legend()
@@ -347,8 +347,8 @@ def plot_obs_bau_pop_line(org_ds, year):
         )
         city_no2[city] = ds_clip
         df = ds_clip.to_dataframe()
-        df = df.rolling(7).mean()
-        df = df.iloc[::7, :]
+        df = df.rolling(3).mean()
+        df = df.iloc[::3, :]
         df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
         df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
         if year == 2020:
@@ -566,9 +566,16 @@ def plot_ax_line(ds, geometry, ppl_name, coal_gdf, ax, year):
         .sel(time=slice(sd, ed))
         .mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
     )
-    df = ds_clip.to_dataframe()
-    df = df.rolling(5).mean()
-    df = df.iloc[::5, :]
+    org_df = ds_clip.to_dataframe()
+    org_df["time"] = org_df.index
+    time = org_df["time"].groupby(np.arange(len(org_df)) // 3).mean()
+
+    df = org_df.groupby(np.arange(len(org_df)) // 3).mean()
+    df["time"] = time
+    df = df.set_index("time")
+
+    # df = df.rolling(2).mean()
+    # df = df.iloc[::2, :]
     df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
     df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
     ax.axhline(
@@ -577,13 +584,13 @@ def plot_ax_line(ds, geometry, ppl_name, coal_gdf, ax, year):
         linewidth=1,
         linestyle="--",
     )
-    if year == 2022:
-        ax.axvline(
-            x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
-            color="r",
-            linewidth=1,
-            linestyle="--",
-        )
+    # if year == 2022:
+    #     ax.axvline(
+    #         x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
+    #         color="r",
+    #         linewidth=1,
+    #         linestyle="--",
+    #     )
     ax.grid()
     ax.set_title(f"{ppl_name}-{year}")
 

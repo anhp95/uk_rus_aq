@@ -61,3 +61,8 @@ LIST_WAR_CITY = [
     "Kyivska",
     "Kyiv",
 ]
+
+RANDOM_GRID = {
+    "min_samples_leaf": [1, 3, 5, 7, 10],
+    "n_estimators": [200, 400, 600, 800],
+}

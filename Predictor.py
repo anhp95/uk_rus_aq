@@ -57,7 +57,13 @@ class Predictor:
 
     def group_by_date(self):
         if self.flag_group_date:
+
+            self.org_ds = self.org_ds.sel(
+                time=self.org_ds.time.dt.hour.isin([9, 10, 11, 12])
+            )
+
             self.org_ds = self.org_ds.groupby(self.org_ds.time.dt.date).mean()
+
             dates = []
             for date in self.org_ds.date.values:
                 m = f"0{date.month}" if date.month < 10 else date.month
@@ -144,7 +150,7 @@ class CAMS_FC_NO2(Predictor):
     def extract_ds(self):
         list_grib_ds = []
         for grib_file in SF_FC_NO2_2020_2022_FILES:
-            grib_ds = read_grib(grib_file)
+            grib_ds = read_grib(grib_file).isel(step=slice(9, 13))
             grib_ds = grib_ds.mean("step")
             list_grib_ds.append(grib_ds)
 
@@ -197,8 +203,8 @@ if __name__ == "__main__":
     cams_reals_no2 = CAMS_REALS_NO2(CAM_REALS_NO2_NC)
     cams_fc_no2 = CAMS_FC_NO2(CAM_FC_NO2_NC)
     era5 = ERA5(ERA5_NC)
-    s5p_no2 = S5P_NO2(S5P_NO2_NC)
-    pop = Pop(POP_NC)
+    # s5p_no2 = S5P_NO2(S5P_NO2_NC)
+    # pop = Pop(POP_NC)
 
 # %%
 s5p_no2_nc = "data/preprocessed/s5p_no2.nc"
