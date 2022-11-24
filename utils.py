@@ -9,6 +9,7 @@ import datashader as dsh
 import matplotlib.lines as mlines
 import geopandas as gpd
 import pandas as pd
+import numpy as np
 
 from datashader.mpl_ext import dsshow
 from shapely.geometry import mapping
@@ -107,5 +108,13 @@ def prep_conflict_df():
 
     return conflict_df
 
+
+def get_nday_mean(df, nday=3):
+    df["time"] = df.index
+    time = df["time"].groupby(np.arange(len(df)) // nday).mean()
+
+    df = df.groupby(np.arange(len(df)) // nday).mean()
+    df["time"] = time
+    return df.set_index("time")
 
 # %%
