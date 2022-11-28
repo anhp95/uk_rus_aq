@@ -11,7 +11,7 @@ from const import *
 #%%
 # Bubble plot
 def plot_change_bubble(geo_df, cols):
-    cmap = "bwr"
+    cmap = "coolwarm"
     for col in cols:
 
         figure, ax = plt.subplots(figsize=(16, 8))
@@ -80,9 +80,9 @@ def plot_obs_bubble():
                     org_ds.rio.clip(geometry, crs)
                     .mean(dim=["lat", "lon"])
                     .sel(time=slice(sd, ed))
-                    .mean("time")[["s5p_no2"]]
+                    .mean("time")[[S5P_OBS_COL]]
                 )
-                obs_dict_year[f"{year}_{tk}"].append(adm_ds["s5p_no2"].item())
+                obs_dict_year[f"{year}_{tk}"].append(adm_ds[S5P_OBS_COL].item())
             bound_lv2[f"{year}_{tk}"] = obs_dict_year[f"{year}_{tk}"]
 
     change_dict = {}
@@ -131,12 +131,12 @@ def plot_obs_bau_bubble(org_ds, year):
                 ds.rio.clip(geometry, crs)
                 .mean(dim=["lat", "lon"])
                 .sel(time=slice(sd, ed))
-                .mean("time")[["s5p_no2_pred", "s5p_no2"]]
+                .mean("time")[[S5P_PRED_COL, S5P_OBS_COL]]
             )
             dict_no2_change[tk].append(
-                (city_ds["s5p_no2"].item() - city_ds["s5p_no2_pred"].item())
+                (city_ds[S5P_OBS_COL].item() - city_ds[S5P_PRED_COL].item())
                 * 100
-                / city_ds["s5p_no2_pred"].item()
+                / city_ds[S5P_PRED_COL].item()
             )
 
     df_no2_change = pd.DataFrame.from_dict(dict_no2_change)
@@ -144,7 +144,7 @@ def plot_obs_bau_bubble(org_ds, year):
     geo_df = gpd.GeoDataFrame(
         df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
     )
-    cmap = "bwr"
+    cmap = "coolwarm"
     for col in sd_ed.keys():
 
         figure, ax = plt.subplots(figsize=(16, 8))
@@ -201,9 +201,9 @@ def plot_obs_bau_map(org_ds, year):
         sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
         ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
 
-        tk_ds = ds.sel(time=slice(sd, ed)).mean("time")[["s5p_no2_pred", "s5p_no2"]]
+        tk_ds = ds.sel(time=slice(sd, ed)).mean("time")[[S5P_PRED_COL, S5P_OBS_COL]]
         change_ds = (
-            (tk_ds["s5p_no2"] - tk_ds["s5p_no2_pred"]) * 100 / tk_ds["s5p_no2_pred"]
+            (tk_ds[S5P_OBS_COL] - tk_ds[S5P_PRED_COL]) * 100 / tk_ds[S5P_PRED_COL]
         )
 
         figure, ax = plt.subplots(figsize=(16, 8))
@@ -212,7 +212,7 @@ def plot_obs_bau_map(org_ds, year):
 
         change_ds.plot(
             ax=ax,
-            cmap="bwr",
+            cmap="coolwarm",
             vmin=-70,
             vmax=70,
             cbar_kwargs={"label": r"NO$_{2}$ col. change (%)"},
@@ -250,18 +250,20 @@ def plot_obs_change_map():
             ed_y = np.datetime64(f"{y}-{t['em']}-{t['ed']}T00:00:00.000000000")
 
             ds_event = org_ds.sel(time=slice(sd_event, ed_event)).mean("time")[
-                ["s5p_no2"]
+                [S5P_OBS_COL]
             ]
-            ds_y = org_ds.sel(time=slice(sd_y, ed_y)).mean("time")[["s5p_no2"]]
+            ds_y = org_ds.sel(time=slice(sd_y, ed_y)).mean("time")[[S5P_OBS_COL]]
 
-            ds_change = (ds_event["s5p_no2"] - ds_y["s5p_no2"]) * 100 / ds_y["s5p_no2"]
+            ds_change = (
+                (ds_event[S5P_OBS_COL] - ds_y[S5P_OBS_COL]) * 100 / ds_y[S5P_OBS_COL]
+            )
 
             figure, ax = plt.subplots(figsize=(16, 8))
             bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
 
             ds_change.plot(
                 ax=ax,
-                cmap="bwr",
+                cmap="coolwarm",
                 vmin=-70,
                 vmax=70,
                 cbar_kwargs={"label": r"NO$_{2}$ col. change (%)"},
@@ -282,7 +284,7 @@ def plot_trend_line(ds, title):
 
     sd = np.datetime64(f"2019-01-01T00:00:00.000000000")
     ed = np.datetime64(f"2019-07-31T00:00:00.000000000")
-    ds_2019 = ds.sel(time=slice(sd, ed)).mean(dim=["lat", "lon"])["s5p_no2"]
+    ds_2019 = ds.sel(time=slice(sd, ed)).mean(dim=["lat", "lon"])[S5P_OBS_COL]
     # ax.plot(ds_2019.time, ds_2019.values, label="2019")
     x = ds_2019.time.values
     print(x)
@@ -294,7 +296,7 @@ def plot_trend_line(ds, title):
     for year in years:
         sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
         ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
-        ds_year = ds.sel(time=slice(sd, ed)).mean(dim=["lat", "lon"])["s5p_no2"]
+        ds_year = ds.sel(time=slice(sd, ed)).mean(dim=["lat", "lon"])[S5P_OBS_COL]
         y = ds_year.values[:-1] if year == 2020 else ds_year.values
         change_dict[year] = y.flatten()
         # ax.plot(x, y, label=year)
@@ -331,13 +333,13 @@ def plot_obs_year():
     for i, y in enumerate(years):
         fig = plt.figure(1 + i, figsize=(10, 7))
         s5p_no2_year = org_ds.sel(time=org_ds.time.dt.year.isin([y]))
-        s5p_mean = s5p_no2_year.mean("time")["s5p_no2"]
-        s5p_mean = s5p_mean * 1e6
+        s5p_mean = s5p_no2_year.mean("time")[S5P_OBS_COL]
+        s5p_mean = s5p_mean
         s5p_mean.plot(
             cmap="YlOrRd",
             vmin=70,
             vmax=100,
-            cbar_kwargs={"label": f"$10^{{{-6}}}$ $mol/m^2$"},
+            cbar_kwargs={"label": NO2_UNIT},
         )
         plt.title(f"{y}", fontsize=18)
 
@@ -363,13 +365,13 @@ def plot_pred_true(ds):
 
     figure, axis = plt.subplots(1, 2, figsize=(16, 8))
     figure.tight_layout(pad=7.0)
-    ds.test_2019.groupby("time").mean().mul(1e6)[["s5p_no2", "s5p_no2_pred"]].plot.line(
+    ds.test_2019.groupby("time").mean().mul(1e6)[[S5P_OBS_COL, S5P_PRED_COL]].plot.line(
         ax=axis[0]
     )
 
     dsartist = dsshow(
-        ds.test_2019[["s5p_no2", "s5p_no2_pred"]].mul(1e6),
-        dsh.Point("s5p_no2", "s5p_no2_pred"),
+        ds.test_2019[[S5P_OBS_COL, S5P_PRED_COL]].mul(1e6),
+        dsh.Point(S5P_OBS_COL, S5P_PRED_COL),
         dsh.count(),
         norm="linear",
         aspect="auto",
@@ -381,15 +383,15 @@ def plot_pred_true(ds):
     axis[0].set_title(
         "Time series trend of observation NO2 and Machine learning NO2 prediction"
     )
-    axis[0].set_xlabel("Date")
+    axis[0].set_ylabel("Date")
     axis[0].set_ylabel(f"$10^{{{-6}}}$ $mol/m^2$")
 
     axis[1].set_title("NO2 Scatter Plot")
-    axis[1].set_xlabel(f"NO2 S5P Obs $10^{{{-6}}}$ $mol/m^2$")
+    axis[1].set_ylabel(f"NO2 S5P Obs $10^{{{-6}}}$ $mol/m^2$")
     axis[1].set_ylabel(f"NO2 ML predictions $10^{{{-6}}}$ $mol/m^2$")
     axis[1].annotate(
         "$R^2$ = {:.3f}".format(
-            r2_score(ds.test_2019["s5p_no2"], ds.test_2019["s5p_no2_pred"])
+            r2_score(ds.test_2019[S5P_OBS_COL], ds.test_2019[S5P_PRED_COL])
         ),
         (10, 300),
     )
@@ -397,53 +399,6 @@ def plot_pred_true(ds):
     transform = axis[1].transAxes
     line.set_transform(transform)
     axis[1].add_line(line)
-
-
-#%%
-def plot_obs_bau_adm2(org_ds, year):
-
-    ds = prep_ds(org_ds, year)
-
-    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
-    sd_ed = PERIOD_DICT[year]
-    adm_col = "ADM2_EN"
-
-    dict_no2_change = {}
-    list_adm1 = bound_lv2[adm_col].values
-
-    for tk in sd_ed.keys():
-        dict_no2_change[tk] = []
-
-        t = sd_ed[tk]
-        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
-
-        for adm1 in list_adm1:
-            geometry = bound_lv2.loc[bound_lv2[adm_col] == adm1].geometry
-            adm_ds = (
-                ds.rio.clip(geometry, bound_lv2.crs)
-                .mean(dim=["lat", "lon"])
-                .sel(time=slice(sd, ed))
-                .mean("time")[["s5p_no2_pred", "s5p_no2"]]
-            )
-            dict_no2_change[tk].append(
-                (adm_ds["s5p_no2"].item() - adm_ds["s5p_no2_pred"].item())
-                * 100
-                / adm_ds["s5p_no2_pred"].item()
-            )
-        bound_lv2[tk] = dict_no2_change[tk]
-    for tk in sd_ed.keys():
-        figure, ax = plt.subplots(figsize=(16, 8))
-        bound_lv2.plot(
-            column=tk,
-            ax=ax,
-            legend=True,
-            cmap="bwr",
-            vmin=-20,
-            vmax=20,
-            legend_kwds={"label": r"NO$_{2}$ col. change (%)"},
-        )
-        plt.title(tk, fontsize=18)
 
 
 #%%
@@ -484,79 +439,98 @@ def plot_fire_conflict(year, data_type="Fire Spot"):
 
 
 # %%
+def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
 
+    vl_covid_clr = "#252525"
+    vl_war_clr = "#252525"
+    label_war = "War start date"
+    label_covid = "Lockdown"
 
-def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year):
+    ls_covid = "dashed"
+    ls_war = "solid"
+    lw = 1.5
 
-    l0_color = "black"
-    vl_covid_clr = "green"
-    vl_war_clr = "red"
-
-    pred_truth_diff = ["#edf8b1", "#7fcdbb", "#2c7fb8"]
+    pred_truth_diff = ["cyan", "red", "#feb24c"]
 
     sd = np.datetime64(f"{year}-02-01T00:00:00.000000000")
     ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
     ds_clip = (
         ds.rio.clip(geometry, gdf.crs)
         .sel(time=slice(sd, ed))
-        .mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
+        .mean(dim=["lat", "lon"])[[S5P_PRED_COL, S5P_OBS_COL]]
     )
     org_df = ds_clip.to_dataframe()
     df = get_nday_mean(org_df, nday=3)
 
-    df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
-    df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(
+    df[OBS_PRED_CHNAGE] = df[S5P_OBS_COL] - df[S5P_PRED_COL]
+    df[[S5P_PRED_COL, S5P_OBS_COL, OBS_PRED_CHNAGE]].plot.line(
         ax=ax, color=pred_truth_diff, legend=False
     )
+
+    if set_ylabel:
+        ax.set_ylabel(NO2_UNIT)
+    ax.grid(color="#d9d9d9")
+    ax.set_title(f"{ppl_name}-{year}")
+    handles, labels = ax.get_legend_handles_labels()
+
     ax.axhline(
         y=0,
         color="black",
         linewidth=1,
         linestyle="--",
     )
+
     if year == 2020:
         ax.axvline(
             x=np.datetime64(f"{year}-03-25T00:00:00.000000000"),
             color=vl_covid_clr,
-            linewidth=2,
-            linestyle="--",
+            linewidth=lw,
+            linestyle=ls_covid,
+            label=label_covid,
         )
         ax.axvline(
             x=np.datetime64(f"{year}-05-11T00:00:00.000000000"),
             color=vl_covid_clr,
-            linewidth=2,
-            linestyle="--",
+            linewidth=lw,
+            linestyle=ls_covid,
         )
 
     elif year == 2021:
-        ax.axvline(
+        covid_line = ax.axvline(
             x=np.datetime64(f"{year}-03-25T00:00:00.000000000"),
             color=vl_covid_clr,
-            linewidth=2,
-            linestyle="--",
+            linewidth=lw,
+            linestyle=ls_covid,
         )
         ax.axvline(
             x=np.datetime64(f"{year}-05-11T00:00:00.000000000"),
             color=vl_covid_clr,
-            linewidth=2,
-            linestyle="--",
+            linewidth=lw,
+            linestyle=ls_covid,
         )
-        ax.axvline(
+        war_line = ax.axvline(
             x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
             color=vl_war_clr,
-            linewidth=2,
-            linestyle="--",
+            linewidth=lw,
+            linestyle=ls_war,
         )
+
+        handles = handles + [war_line]
+        labels = labels + [label_war]
+
+        handles = handles + [covid_line]
+        labels = labels + [label_covid]
 
     elif year == 2022:
         ax.axvline(
             x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
             color=vl_war_clr,
-            linewidth=2,
-            linestyle="--",
+            linewidth=lw,
+            linestyle=ls_war,
+            label=label_war,
         )
-    ax.grid()
-    ax.set_title(f"{ppl_name}-{year}")
+
+    return handles, labels
 
 
 def plot_ppl_obs_bau_line_mlt(org_ds):
@@ -575,9 +549,17 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
         geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
         fig, ax = plt.subplots(1, 3, figsize=(16, 4))
 
-        plot_ax_line(ds_2020, geometry, ppl_name, coal_gdf, ax[0], 2020)
-        plot_ax_line(ds_2021, geometry, ppl_name, coal_gdf, ax[1], 2021)
+        plot_ax_line(
+            ds_2020, geometry, ppl_name, coal_gdf, ax[0], 2020, set_ylabel="True"
+        )
+        handles, labels = plot_ax_line(
+            ds_2021, geometry, ppl_name, coal_gdf, ax[1], 2021
+        )
         plot_ax_line(ds_2022, geometry, ppl_name, coal_gdf, ax[2], 2022)
+
+        fig.legend(
+            handles, labels, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.01)
+        )
 
 
 def plot_obs_bau_pop_line_mlt(org_ds):
@@ -593,9 +575,13 @@ def plot_obs_bau_pop_line_mlt(org_ds):
         geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
         fig, ax = plt.subplots(1, 3, figsize=(16, 4))
 
-        plot_ax_line(ds_2020, geometry, city, bound_lv2, ax[0], 2020)
-        plot_ax_line(ds_2021, geometry, city, bound_lv2, ax[1], 2021)
+        plot_ax_line(ds_2020, geometry, city, bound_lv2, ax[0], 2020, set_ylabel=True)
+        handles, labels = plot_ax_line(ds_2021, geometry, city, bound_lv2, ax[1], 2021)
         plot_ax_line(ds_2022, geometry, city, bound_lv2, ax[2], 2022)
+
+        fig.legend(
+            handles, labels, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.01)
+        )
 
 
 def plot_obs_bau_pop_line_sgl(org_ds, year):
@@ -614,13 +600,13 @@ def plot_obs_bau_pop_line_sgl(org_ds, year):
         ds_clip = (
             ds.rio.clip(geometry, crs)
             .sel(time=slice(sd, ed))
-            .mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
+            .mean(dim=["lat", "lon"])[[S5P_PRED_COL, S5P_OBS_COL]]
         )
         city_no2[city] = ds_clip
         df = ds_clip.to_dataframe()
         df = get_nday_mean(df, nday=3)
-        df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
-        df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
+        df[OBS_PRED_CHNAGE] = df[S5P_OBS_COL] - df[S5P_PRED_COL]
+        df[[S5P_PRED_COL, S5P_OBS_COL, OBS_PRED_CHNAGE]].plot.line(ax=ax)
         if year in [2020, 2021]:
             ax.axvline(
                 x=np.datetime64(f"{year}-03-25T00:00:00.000000000"),
@@ -674,13 +660,13 @@ def plot_ppl_obs_bau_line_sgl(org_ds, year):
         ds_clip = (
             ds.rio.clip(geometry, coal_gdf.crs)
             .sel(time=slice(sd, ed))
-            .mean(dim=["lat", "lon"])[["s5p_no2_pred", "s5p_no2"]]
+            .mean(dim=["lat", "lon"])[[S5P_PRED_COL, S5P_OBS_COL]]
         )
         ppl_no2[ppl_name] = ds_clip
         df = ds_clip.to_dataframe()
         df = get_nday_mean(org_df, nday=3)
-        df["obs_pred"] = df["s5p_no2"] - df["s5p_no2_pred"]
-        df[["s5p_no2_pred", "s5p_no2", "obs_pred"]].plot.line(ax=ax)
+        df[OBS_PRED_CHNAGE] = df[S5P_OBS_COL] - df[S5P_PRED_COL]
+        df[[S5P_PRED_COL, S5P_OBS_COL, OBS_PRED_CHNAGE]].plot.line(ax=ax)
         ax.axhline(
             y=0,
             color="black",
@@ -709,7 +695,7 @@ def plot_ppl_obs_line():
     for i, ppl_name in enumerate(coal_gdf.name.values):
         geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
         ds_clip = org_ds.rio.clip(geometry, coal_gdf.crs).mean(dim=["lat", "lon"])[
-            "s5p_no2"
+            S5P_OBS_COL
         ]
         ds_city = org_ds.rio.clip(geometry, coal_gdf.crs)
         df = plot_trend_line(ds_city, ppl_name)
@@ -729,3 +715,109 @@ def plot_weather_params(ds):
     figure, ax = plt.subplots(figsize=(10, 6))
     xr.plot.hist(ts_2022["d2m"], ec="b", fc="None", histtype="step")
     xr.plot.hist(ts["d2m"], ec="r", fc="None", histtype="step")
+
+
+def plot_obs_bau_adm2(org_ds, year):
+
+    ds = prep_ds(org_ds, year)
+
+    conflict_ds = prep_conflict_df()
+    fire_ds = prep_fire_df()
+
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
+    sd_ed = PERIOD_DICT[year]
+
+    adm_col = "ADM2_EN"
+
+    dict_no2_change = {}
+    dict_conflict_change = {}
+    dict_fire_change = {}
+
+    list_adm = bound_lv2[adm_col].values
+
+    tks = list(sd_ed.keys())[2:]
+    for tk in tks:
+
+        dict_no2_change[tk] = []
+        dict_conflict_change[tk] = []
+        dict_fire_change[tk] = []
+
+        t = sd_ed[tk]
+        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
+        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
+
+        for adm in list_adm:
+            geometry = bound_lv2.loc[bound_lv2[adm_col] == adm].geometry
+
+            # cal obs deweather no2 ds
+            adm_no2_ds = (
+                ds.rio.clip(geometry, bound_lv2.crs)
+                .mean(dim=["lat", "lon"])
+                .sel(time=slice(sd, ed))
+                .mean("time")[[S5P_PRED_COL, S5P_OBS_COL]]
+            )
+
+            dict_no2_change[tk].append(
+                (adm_no2_ds[S5P_OBS_COL].item() - adm_no2_ds[S5P_PRED_COL].item())
+                * 100
+                / adm_no2_ds[S5P_PRED_COL].item()
+            )
+
+            # cal conflict_ds
+            mask_date = (conflict_ds["DATETIME"] > sd) & (conflict_ds["DATETIME"] <= ed)
+            amd_cflt_ds = conflict_ds.loc[mask_date]
+            amd_cflt_ds = gpd.clip(amd_cflt_ds, geometry)
+            dict_conflict_change[tk].append(len(amd_cflt_ds))
+
+            # cal fire ds
+            mask_date = (fire_ds["DATETIME"] > sd) & (fire_ds["DATETIME"] <= ed)
+            amd_fire_ds = fire_ds.loc[mask_date]
+            amd_fire_ds = gpd.clip(amd_fire_ds, geometry)
+            dict_fire_change[tk].append(len(amd_fire_ds))
+
+        bound_lv2[f"war_{tk}"] = dict_no2_change[tk]
+        bound_lv2[f"conflict_{tk}"] = dict_conflict_change[tk]
+        bound_lv2[f"fire_{tk}"] = dict_fire_change[tk]
+
+    figure, ax = plt.subplots(len(tks), 3, figsize=(32, 8 * len(tks)))
+
+    for i, tk in enumerate(tks):
+        bound_lv2.plot(
+            column=f"war_{tk}",
+            ax=ax[i][0],
+            legend=True,
+            cmap="coolwarm",
+            vmin=-20,
+            vmax=20,
+            legend_kwds={
+                "label": r"NO$_{2}$ col. change (%)",
+                "orientation": "horizontal",
+            },
+        )
+        bound_lv2.plot(
+            column=f"conflict_{tk}",
+            ax=ax[i][1],
+            legend=True,
+            cmap="Reds",
+            legend_kwds={
+                "label": "Number of conflict spots",
+                "orientation": "horizontal",
+            },
+        )
+
+        bound_lv2.plot(
+            column=f"fire_{tk}",
+            ax=ax[i][2],
+            legend=True,
+            cmap="OrRd",
+            legend_kwds={"label": "Number of fire spots", "orientation": "horizontal"},
+        )
+
+        for j in range(len(ax[i])):
+            bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+            ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+
+        ax[i][0].set_title(f"Observation and Deweather Difference -{tk}-{year}")
+        ax[i][1].set_title(f"Conflict Locations-{tk}-{year}")
+        ax[i][2].set_title(f"Fire Locations-{tk}-{year}")
+    # plt.title(tk, fontsize=18)

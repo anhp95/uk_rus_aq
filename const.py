@@ -5,11 +5,6 @@ UK_BOUND = {
     "max_lon": 40.227883,
 }
 
-ERA5_COLS = ["u10", "v10", "d2m", "t2m", "blh", "z"]
-POP_COLS = ["pop"]
-S5P_COLS = ["s5p_no2"]
-CAMS_COLS = ["cams_no2"]
-
 PERIOD_DICT = {
     2022: {
         "Jan": {"sd": "01", "sm": "01", "ed": "01", "em": "02"},
@@ -66,3 +61,14 @@ RANDOM_GRID = {
     "min_samples_leaf": [1, 3, 5, 7, 10],
     "n_estimators": [200, 400, 600, 800],
 }
+
+NO2_UNIT = f"$10^{{{-6}}}$ $mol/m^2$"
+
+S5P_OBS_COL = r"Observed_S5P"
+S5P_PRED_COL = r"Deweathered_S5P"
+OBS_PRED_CHNAGE = r"Observed_Deweathered_Difference"
+
+ERA5_COLS = ["u10", "v10", "d2m", "t2m", "blh", "z"]
+POP_COLS = ["pop"]
+S5P_COLS = [S5P_OBS_COL]
+CAMS_COLS = ["cams_no2"]

@@ -64,7 +64,7 @@ class Dataset(object):
         self.era5 = xr.open_dataset(era5_nc)
 
         s5p = xr.open_dataset(s5p_nc)
-        self.s5p = s5p.rename(name_dict={list(s5p.keys())[0]: "s5p_no2"})
+        self.s5p = s5p.rename(name_dict={list(s5p.keys())[0]: S5P_OBS_COL})
         self.s5p = self.s5p.isel(band=0)
 
         pop = xr.open_dataset(pop_nc)
@@ -143,11 +143,11 @@ class Dataset(object):
         self.test_2019 = test_2019.dropna()
 
     def extract_Xy_train_test(self):
-        X_train = self.train_2019.drop(columns=["s5p_no2", "time"]).values
-        X_test = self.test_2019.drop(columns=["s5p_no2", "time"]).values
+        X_train = self.train_2019.drop(columns=[S5P_OBS_COL, "time"]).values
+        X_test = self.test_2019.drop(columns=[S5P_OBS_COL, "time"]).values
 
-        y_train = self.train_2019["s5p_no2"].values
-        y_test = self.test_2019["s5p_no2"].values
+        y_train = self.train_2019[S5P_OBS_COL].values
+        y_test = self.test_2019[S5P_OBS_COL].values
 
         return X_train, y_train, X_test, y_test
 
@@ -157,8 +157,8 @@ class Dataset(object):
             RandomForestRegressor(), tunned_parameters, scoring="r2", cv=5, n_jobs=-1
         )
         data_2019 = self.reform_data(2019, self.list_geo).dropna()
-        X = data_2019.drop(columns=["s5p_no2", "time"]).values
-        y = data_2019["s5p_no2"].values
+        X = data_2019.drop(columns=[S5P_OBS_COL, "time"]).values
+        y = data_2019[S5P_OBS_COL].values
         grid_search.fit(X, y)
         self.best_params = grid_search.best_params_
 
@@ -234,7 +234,7 @@ class Dataset(object):
         print(linregress(y_pred_train, y_train))
 
         # plot
-        self.test_2019["s5p_no2_pred"] = y_pred
+        self.test_2019[S5P_PRED_COL] = y_pred
 
         return y_pred, y_test, y_pred_train, y_train
 
@@ -247,17 +247,27 @@ class Dataset(object):
     def de_weather(self):
 
         s5p_2020_pred = self.de_weather_model.predict(
-            self.df_2020.drop(columns=["s5p_no2", "time"]).values
+            self.df_2020.drop(columns=[S5P_OBS_COL, "time"]).values
         )
         s5p_2021_pred = self.de_weather_model.predict(
-            self.df_2021.drop(columns=["s5p_no2", "time"]).values
+            self.df_2021.drop(columns=[S5P_OBS_COL, "time"]).values
         )
         s5p_2022_pred = self.de_weather_model.predict(
-            self.df_2022.drop(columns=["s5p_no2", "time"]).values
+            self.df_2022.drop(columns=[S5P_OBS_COL, "time"]).values
         )
-        self.df_2020["s5p_no2_pred"] = s5p_2020_pred
-        self.df_2021["s5p_no2_pred"] = s5p_2021_pred
-        self.df_2022["s5p_no2_pred"] = s5p_2022_pred
+        self.df_2020[S5P_PRED_COL] = s5p_2020_pred
+        self.df_2021[S5P_PRED_COL] = s5p_2021_pred
+        self.df_2022[S5P_PRED_COL] = s5p_2022_pred
+
+        self.df_2020[[S5P_PRED_COL, S5P_OBS_COL]] = (
+            self.df_2020[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
+        )
+        self.df_2021[[S5P_PRED_COL, S5P_OBS_COL]] = (
+            self.df_2021[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
+        )
+        self.df_2022[[S5P_PRED_COL, S5P_OBS_COL]] = (
+            self.df_2022[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
+        )
 
         self.dw_2020 = self.df_2020.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2021 = self.df_2021.set_index(["time", "lat", "lon"]).to_xarray()
