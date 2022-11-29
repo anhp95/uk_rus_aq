@@ -116,7 +116,9 @@ def plot_obs_bau_bubble(org_ds, year):
 
     dict_no2_change = {}
 
-    for tk in sd_ed.keys():
+    tks = list(sd_ed.keys())
+
+    for tk in tks:
 
         dict_no2_change[tk] = []
 
@@ -144,12 +146,20 @@ def plot_obs_bau_bubble(org_ds, year):
     geo_df = gpd.GeoDataFrame(
         df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
     )
-    cmap = "coolwarm"
-    for col in sd_ed.keys():
 
-        figure, ax = plt.subplots(figsize=(16, 8))
+    cmap = "seismic"
+    nrow = int(len(tks) / 2)
+    # figure, ax = plt.subplots(nrow, 2, figsize=(22, 13))
+    figure, ax = plt.subplots(nrow, 2, figsize=(22, 6.5 * nrow))
+
+    j = 0
+    for i, col in enumerate(tks):
+
+        i = int(i / 2)
+        j = 0 if j > 1 else j
+
         bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-        bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
+        bound_lv1.plot(ax=ax[i][j], facecolor="white", edgecolor="black", lw=0.7)
 
         g = sns.scatterplot(
             data=geo_df,
@@ -160,30 +170,36 @@ def plot_obs_bau_bubble(org_ds, year):
             size="Population",
             sizes=(150, 500),
             palette=cmap,
-            ax=ax,
+            ax=ax[i][j],
         )
 
-        g.legend(bbox_to_anchor=(1.0, 1.0), ncol=1)
+        g.legend(bbox_to_anchor=(1.0, 1.0), ncol=1, bbox_transform=ax[i][j].transAxes)
 
-        norm = plt.Normalize(-30, 30)
+        norm = plt.Normalize(-20, 20)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        clb = g.figure.colorbar(sm)
+        clb = g.figure.colorbar(sm, ax=ax[i][j])
         clb.ax.set_ylabel(r"NO$_{2}$ col. change (%)")
         clb.ax.yaxis.set_label_position("right")
-        g.set(title=rf"NO$_{2}$_OBS - NO$_{2}$_BAU {col} - {year}")
+        g.set(title=rf"Observered_NO$_{2}$ - Deweathered_NO$_{2}$ {col} - {year}")
 
         h, l = g.get_legend_handles_labels()
-        plt.legend(
+        l = [f"{li}M" for li in l]
+        legend = ax[i][j].legend(
             h[-7:],
             l[-7:],
-            bbox_to_anchor=(1, 1),
-            loc="upper right",
+            bbox_to_anchor=(0, 0),
+            loc="lower left",
             borderaxespad=0.0,
             fontsize=13,
+            edgecolor="black"
+            # bbox_transform=ax[i][j].transAxes,
         )
+        legend.get_frame().set_alpha(None)
+        # legend.get_frame().set_facecolor((0, 0, 1, 0.1))
+        j += 1
 
-    return geo_df
+    # return geo_df
 
 
 #%%
@@ -195,7 +211,14 @@ def plot_obs_bau_map(org_ds, year):
     sd_ed = PERIOD_DICT[year]
     adm_col = "ADM2_EN"
 
-    for tk in sd_ed.keys():
+    tks = list(sd_ed.keys())
+    nrow = int(len(tks) / 2)
+    figure, ax = plt.subplots(nrow, 2, figsize=(16, 6.5 * nrow))
+    j = 0
+    for i, tk in enumerate(tks):
+
+        i = int(i / 2)
+        j = 0 if j > 1 else j
 
         t = sd_ed[tk]
         sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
@@ -206,24 +229,38 @@ def plot_obs_bau_map(org_ds, year):
             (tk_ds[S5P_OBS_COL] - tk_ds[S5P_PRED_COL]) * 100 / tk_ds[S5P_PRED_COL]
         )
 
-        figure, ax = plt.subplots(figsize=(16, 8))
         bound_lv1 = gpd.read_file(UK_SHP_ADM1)
         bound_lv0 = gpd.read_file(UK_SHP_ADM0)
 
         change_ds.plot(
-            ax=ax,
-            cmap="coolwarm",
-            vmin=-70,
-            vmax=70,
-            cbar_kwargs={"label": r"NO$_{2}$ col. change (%)"},
+            ax=ax[i][j],
+            cmap="seismic",
+            vmin=-100,
+            vmax=100,
+            cbar_kwargs={
+                "label": r"NO$_{2}$ col. change (%)",
+                "orientation": "horizontal",
+                "fraction": 0.047,
+                "extend": "both",
+            },
         )
-        bound_lv1.plot(ax=ax, facecolor="None", edgecolor="black", lw=0.4)
-        bound_lv0.plot(ax=ax, facecolor="None", edgecolor="black", lw=2)
-        coal_gdf.plot(ax=ax, color="gray", markersize=30, label="Coal")
-        plt.legend()
-        plt.xlim([22, 41])
-        plt.ylim([44, 53])
-        plt.title(tk, fontsize=18)
+        # bound_lv0.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=2)
+        coal_gdf.plot(
+            ax=ax[i][j], color="green", markersize=30, label="Coal power plant"
+        )
+        bound_lv1.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+        ax[i][j].set_xlabel("longitude")
+        ax[i][j].set_ylabel("latitude")
+        ax[i][j].legend()
+        ax[i][j].set_title(tk)
+
+        ax[i][j].set_xlim([22, 41])
+        ax[i][j].set_ylim([44, 53])
+        j += 1
+        # plt.title(tk, fontsize=18)
+    plt.suptitle(rf"Observed_Deweathered_NO$_{2}$_Difference_{year}", fontsize=18)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.98)
 
 
 def plot_obs_change_map():
@@ -236,12 +273,18 @@ def plot_obs_change_map():
     years = [2019]
     # sd_ed = PERIOD_DICT[2022]
     # years = [2019, 2020, 2021]
+    tks = list(sd_ed.keys())
+    nrow = int(len(tks) / 2)
+    figure, ax = plt.subplots(nrow, 2, figsize=(16, 6.5 * nrow))
 
     for y in years:
-        for tk in sd_ed.keys():
+        j = 0
+        for i, tk in enumerate(tks):
+
+            i = int(i / 2)
+            j = 0 if j > 1 else j
+
             t = sd_ed[tk]
-            # sd_event = np.datetime64(f"2022-{t['sm']}-{t['sd']}T00:00:00.000000000")
-            # ed_event = np.datetime64(f"2022-{t['em']}-{t['ed']}T00:00:00.000000000")
 
             sd_event = np.datetime64(f"2020-{t['sm']}-{t['sd']}T00:00:00.000000000")
             ed_event = np.datetime64(f"2020-{t['em']}-{t['ed']}T00:00:00.000000000")
@@ -258,18 +301,30 @@ def plot_obs_change_map():
                 (ds_event[S5P_OBS_COL] - ds_y[S5P_OBS_COL]) * 100 / ds_y[S5P_OBS_COL]
             )
 
-            figure, ax = plt.subplots(figsize=(16, 8))
-            bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
-
             ds_change.plot(
-                ax=ax,
-                cmap="coolwarm",
+                ax=ax[i][j],
+                cmap="seismic",
                 vmin=-70,
                 vmax=70,
-                cbar_kwargs={"label": r"NO$_{2}$ col. change (%)"},
+                cbar_kwargs={
+                    "label": r"NO$_{2}$ col. change (%)",
+                    "orientation": "horizontal",
+                    "fraction": 0.047,
+                    "extend": "both",
+                },
             )
+            bound_lv1.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
             # plt.title(f"OBS_2022_{y}_{tk}", fontsize=18)
-            plt.title(f"OBS_2020_{y}_{tk}", fontsize=18)
+            ax[i][j].set_xlabel("longitude")
+            ax[i][j].set_ylabel("latitude")
+            ax[i][j].set_title(tk)
+
+            ax[i][j].set_xlim([22, 41])
+            ax[i][j].set_ylim([44, 53])
+            j += 1
+    plt.suptitle(rf"Observed_NO$_{2}$_Difference_2020_{y}", fontsize=18)
+    # plt.tight_layout()
+    # plt.subplots_adjust(top=0.9)
 
 
 # %%
@@ -327,11 +382,12 @@ def plot_obs_pop_line():
 
 def plot_obs_year():
     org_ds = prep_s5p_ds()
+    bound_lv1 = gpd.read_file(UK_SHP_ADM1)
 
     years = [2019, 2020, 2021, 2022]
 
+    figure, ax = plt.subplots(2, 2, figsize=(16, 6.5 * 2))
     for i, y in enumerate(years):
-        fig = plt.figure(1 + i, figsize=(10, 7))
         s5p_no2_year = org_ds.sel(time=org_ds.time.dt.year.isin([y]))
         s5p_mean = s5p_no2_year.mean("time")[S5P_OBS_COL]
         s5p_mean = s5p_mean
@@ -779,7 +835,7 @@ def plot_obs_bau_adm2(org_ds, year):
         bound_lv2[f"conflict_{tk}"] = dict_conflict_change[tk]
         bound_lv2[f"fire_{tk}"] = dict_fire_change[tk]
 
-    figure, ax = plt.subplots(len(tks), 3, figsize=(32, 8 * len(tks)))
+    figure, ax = plt.subplots(len(tks), 3, figsize=(30, 7 * len(tks)))
 
     for i, tk in enumerate(tks):
         bound_lv2.plot(

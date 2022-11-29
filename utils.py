@@ -69,9 +69,9 @@ def prep_ds(org_ds, year):
 
 
 def prep_s5p_ds():
-    org_ds = xr.open_dataset(S5P_NO2_NC)
+    org_ds = xr.open_dataset(S5P_NO2_NC) * 1e6
     var_name = list(org_ds.keys())[0]
-    org_ds = org_ds.rename(name_dict={var_name: "s5p_no2"})
+    org_ds = org_ds.rename(name_dict={var_name: S5P_OBS_COL})
     org_ds = org_ds.rio.write_crs("epsg:4326", inplace=True)
     org_ds = org_ds.rio.set_spatial_dims("lon", "lat", inplace=True)
     return org_ds
@@ -116,5 +116,6 @@ def get_nday_mean(df, nday=3):
     df = df.groupby(np.arange(len(df)) // nday).mean()
     df["time"] = time
     return df.set_index("time")
+
 
 # %%
