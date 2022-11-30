@@ -149,8 +149,7 @@ def plot_obs_bau_bubble(org_ds, year):
 
     cmap = "seismic"
     nrow = int(len(tks) / 2)
-    # figure, ax = plt.subplots(nrow, 2, figsize=(22, 13))
-    figure, ax = plt.subplots(nrow, 2, figsize=(22, 6.5 * nrow))
+    figure, ax = plt.subplots(nrow, 2, figsize=(14, 5 * nrow), layout="constrained")
 
     j = 0
     for i, col in enumerate(tks):
@@ -166,39 +165,63 @@ def plot_obs_bau_bubble(org_ds, year):
             x=geo_df.centroid.x,
             y=geo_df.centroid.y,
             hue=col,
-            hue_norm=(-20, 20),
+            hue_norm=(-30, 30),
             size="Population",
             sizes=(150, 500),
             palette=cmap,
             ax=ax[i][j],
         )
 
-        g.legend(bbox_to_anchor=(1.0, 1.0), ncol=1, bbox_transform=ax[i][j].transAxes)
+        # g.legend(
+        #     bbox_to_anchor=(1.0, 1.0),
+        #     ncol=1,
+        #     bbox_transform=ax[i][j].transAxes,
+        # )
 
-        norm = plt.Normalize(-20, 20)
+        norm = plt.Normalize(-30, 30)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        clb = g.figure.colorbar(sm, ax=ax[i][j])
-        clb.ax.set_ylabel(r"NO$_{2}$ col. change (%)")
-        clb.ax.yaxis.set_label_position("right")
-        g.set(title=rf"Observered_NO$_{2}$ - Deweathered_NO$_{2}$ {col} - {year}")
+
+        # clb = g.figure.colorbar(
+        #     sm,
+        #     ax=ax[i][j - 1],
+        #     fraction=0.047,
+        #     orientation="horizontal",
+        #     extend="both",
+        #     label="NO$_{2}$ col. change (%)",
+        # )
+
+        g.set(title=rf"{col}")
 
         h, l = g.get_legend_handles_labels()
-        l = [f"{li}M" for li in l]
+        l = [f"{li}M" if li != "Population" else li for li in l]
         legend = ax[i][j].legend(
             h[-7:],
             l[-7:],
             bbox_to_anchor=(0, 0),
             loc="lower left",
             borderaxespad=0.0,
-            fontsize=13,
-            edgecolor="black"
-            # bbox_transform=ax[i][j].transAxes,
+            # fontsize=13,
+            edgecolor="black",
         )
         legend.get_frame().set_alpha(None)
         # legend.get_frame().set_facecolor((0, 0, 1, 0.1))
         j += 1
-
+    figure.colorbar(
+        sm,
+        ax=ax[:, :],
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.6,
+    )
+    plt.suptitle(
+        rf"Observed_Deweathered_NO$_{2}$_Difference_{year} (Major cities)", fontsize=18
+    )
+    # plt.subplots_adjust(top=0.95)
     # return geo_df
 
 
@@ -258,9 +281,11 @@ def plot_obs_bau_map(org_ds, year):
         ax[i][j].set_ylim([44, 53])
         j += 1
         # plt.title(tk, fontsize=18)
-    plt.suptitle(rf"Observed_Deweathered_NO$_{2}$_Difference_{year}", fontsize=18)
+    plt.suptitle(
+        rf"Observed_Deweathered_NO$_{2}$_Difference_{year} (Pixel level)", fontsize=18
+    )
     plt.tight_layout()
-    plt.subplots_adjust(top=0.98)
+    plt.subplots_adjust(top=0.95)
 
 
 def plot_obs_change_map():
@@ -461,37 +486,113 @@ def plot_pred_true(ds):
 # Plot fire location and conflict point
 
 
-def plot_fire_conflict(year, data_type="Fire Spot"):
+def plot_fire_conflict():
 
-    data_df = prep_fire_df() if data_type == "Fire Spot" else prep_conflict_df()
-    color = "orange" if data_type == "Fire Spot" else "red"
+    # data_df = prep_fire_df() if data_type == "Fire Spot" else prep_conflict_df()
+    # color = "orange" if data_type == "Fire Spot" else "red"
+    color_fire = "red"
+    color_conflict = "orange"
+    label_fire = "Fire Spot"
+    label_conflict = "Conflict Spot"
+    label_coal = "Coal power plant"
 
-    nucl_gdf = gpd.read_file(UK_NUC_SHP)
+    years = [2020, 2021, 2022]
+
     coal_gdf = gpd.read_file(UK_COAL_SHP)
 
-    bound_lv0 = gpd.read_file(UK_SHP_ADM0)
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
+    bound_lv0 = gpd.read_file(UK_SHP_ADM0)
 
-    sd_ed = PERIOD_DICT[year]
+    fire_df = gpd.clip(prep_fire_df(), bound_lv0.geometry)
+    conflict_df = gpd.clip(prep_conflict_df(), bound_lv0.geometry)
 
-    for tk in sd_ed.keys():
+    # Plot fire locations
+    figure_fire, ax_fire = plt.subplots(6, 3, figsize=(24, 5 * 6))
+    for j, y in enumerate(years):
 
+        sd_ed = PERIOD_DICT[y]
+        tks = list(sd_ed.keys())
+        for i, tk in enumerate(tks):
+
+            t = sd_ed[tk]
+
+            sd = np.datetime64(f"{y}-{t['sm']}-{t['sd']}T00:00:00.000000000")
+            ed = np.datetime64(f"{y}-{t['em']}-{t['ed']}T00:00:00.000000000")
+
+            mask = (fire_df["DATETIME"] > sd) & (fire_df["DATETIME"] <= ed)
+            df = fire_df.loc[mask]
+
+            coal_gdf.plot(
+                ax=ax_fire[i][j], color="blue", markersize=20, label=label_coal
+            )
+            df.plot(ax=ax_fire[i][j], color=color_fire, markersize=2, label=label_fire)
+            bound_lv1.plot(
+                ax=ax_fire[i][j], facecolor="None", edgecolor="black", lw=0.2
+            )
+            ax_fire[i][j].legend(
+                bbox_to_anchor=(0, 0),
+                loc="lower left",
+            )
+            ax_fire[i][j].set_title(f"{tk} - {y}", fontsize=18)
+
+    # Plot conflict locations
+    figure_conflict, ax_conflict = plt.subplots(4, 3, figsize=(24, 5 * 4))
+    sd_ed = PERIOD_DICT[2022]
+
+    tks = list(sd_ed.keys())
+
+    j = 0
+    for i, tk in enumerate(tks):
+
+        i = int(i / 3)
+
+        i = i if i == 0 else i + 1
+        j = j if j < 3 else j - 3
         t = sd_ed[tk]
-        figure, ax = plt.subplots(figsize=(16, 8))
+        sd = np.datetime64(f"2022-{t['sm']}-{t['sd']}T00:00:00.000000000")
+        ed = np.datetime64(f"2022-{t['em']}-{t['ed']}T00:00:00.000000000")
 
-        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
+        mask = (fire_df["DATETIME"] > sd) & (fire_df["DATETIME"] <= ed)
+        masked_fire_df = fire_df.loc[mask]
 
-        mask = (data_df["DATETIME"] > sd) & (data_df["DATETIME"] <= ed)
-        df = data_df.loc[mask]
+        mask = (conflict_df["DATETIME"] > sd) & (conflict_df["DATETIME"] <= ed)
+        masked_conflict_df = conflict_df.loc[mask]
 
-        df.plot(ax=ax, color=color, markersize=10, label=data_type)
-        nucl_gdf.plot(ax=ax, color="green", markersize=100, label="Nuclear")
-        coal_gdf.plot(ax=ax, color="blue", markersize=100, label="Coal")
-        bound_lv1.plot(ax=ax, facecolor="None", edgecolor="black", lw=0.4)
-        bound_lv0.plot(ax=ax, facecolor="None", edgecolor="black", lw=2)
-        ax.legend()
-        plt.title(tk, fontsize=18)
+        coal_gdf.plot(
+            ax=ax_conflict[i][j], color="blue", markersize=20, label=label_coal
+        )
+        masked_fire_df.plot(
+            ax=ax_conflict[i][j],
+            color=color_fire,
+            markersize=2,
+            label=label_fire,
+        )
+        bound_lv1.plot(
+            ax=ax_conflict[i][j], facecolor="None", edgecolor="black", lw=0.2
+        )
+        ax_conflict[i][j].legend(
+            bbox_to_anchor=(0, 0),
+            loc="lower left",
+        )
+        ax_conflict[i][j].set_title(f"{tk} - 2022", fontsize=18)
+
+        coal_gdf.plot(
+            ax=ax_conflict[i + 1][j], color="blue", markersize=20, label=label_coal
+        )
+        masked_conflict_df.plot(
+            ax=ax_conflict[i + 1][j],
+            color=color_conflict,
+            markersize=2,
+            label=label_conflict,
+        )
+        bound_lv1.plot(
+            ax=ax_conflict[i + 1][j], facecolor="None", edgecolor="black", lw=0.2
+        )
+
+        ax_conflict[i + 1][j].legend(bbox_to_anchor=(0, 0), loc="lower left")
+        ax_conflict[i + 1][j].set_title(f"{tk} - 2022", fontsize=18)
+
+        j = j + 1
 
 
 # %%
