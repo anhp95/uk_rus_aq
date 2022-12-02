@@ -302,15 +302,15 @@ def plot_obs_bau_map(org_ds, year):
     # plt.subplots_adjust(top=0.95)
 
 
-def plot_obs_change_map():
+def plot_obs_change_map(y_event, y_bau):
 
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
     coal_gdf = gpd.read_file(UK_COAL_SHP)
 
     org_ds = prep_s5p_ds()
 
-    sd_ed = PERIOD_DICT[2020]
-    years = [2019]
+    sd_ed = PERIOD_DICT[y_event]
+    years = [y_bau]
     # sd_ed = PERIOD_DICT[2022]
     # years = [2019, 2020, 2021]
     tks = list(sd_ed.keys())
@@ -326,8 +326,12 @@ def plot_obs_change_map():
 
             t = sd_ed[tk]
 
-            sd_event = np.datetime64(f"2020-{t['sm']}-{t['sd']}T00:00:00.000000000")
-            ed_event = np.datetime64(f"2020-{t['em']}-{t['ed']}T00:00:00.000000000")
+            sd_event = np.datetime64(
+                f"{y_event}-{t['sm']}-{t['sd']}T00:00:00.000000000"
+            )
+            ed_event = np.datetime64(
+                f"{y_event}-{t['em']}-{t['ed']}T00:00:00.000000000"
+            )
 
             sd_y = np.datetime64(f"{y}-{t['sm']}-{t['sd']}T00:00:00.000000000")
             ed_y = np.datetime64(f"{y}-{t['em']}-{t['ed']}T00:00:00.000000000")
@@ -380,7 +384,7 @@ def plot_obs_change_map():
         location="bottom",
         shrink=0.4,
     )
-    plt.suptitle(rf"Observed_NO$_{2}$_Difference_2020_{y}", fontsize=18)
+    plt.suptitle(rf"Observed_NO$_{2}$_Difference_{y_event}_{y}", fontsize=18)
     # plt.tight_layout()
     # plt.subplots_adjust(top=0.9)
 
@@ -517,6 +521,7 @@ def plot_pred_true(ds):
 
 #%%
 # Plot fire location and conflict point
+
 
 def plot_fire_conflict():
 
