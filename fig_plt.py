@@ -149,7 +149,7 @@ def plot_obs_bau_bubble(org_ds, year):
 
     cmap = "seismic"
     nrow = int(len(tks) / 2)
-    figure, ax = plt.subplots(nrow, 2, figsize=(14, 5 * nrow), layout="constrained")
+    figure, ax = plt.subplots(nrow, 2, figsize=(12, 4 * nrow), layout="constrained")
 
     j = 0
     for i, col in enumerate(tks):
@@ -216,7 +216,7 @@ def plot_obs_bau_bubble(org_ds, year):
         extend="both",
         label="NO$_{2}$ col. change (%)",
         location="bottom",
-        shrink=0.6,
+        shrink=0.4,
     )
     plt.suptitle(
         rf"Observed_Deweathered_NO$_{2}$_Difference_{year} (Major cities)", fontsize=18
@@ -236,7 +236,7 @@ def plot_obs_bau_map(org_ds, year):
 
     tks = list(sd_ed.keys())
     nrow = int(len(tks) / 2)
-    figure, ax = plt.subplots(nrow, 2, figsize=(16, 6.5 * nrow))
+    figure, ax = plt.subplots(nrow, 2, figsize=(10, 4 * nrow), layout="constrained")
     j = 0
     for i, tk in enumerate(tks):
 
@@ -255,42 +255,57 @@ def plot_obs_bau_map(org_ds, year):
         bound_lv1 = gpd.read_file(UK_SHP_ADM1)
         bound_lv0 = gpd.read_file(UK_SHP_ADM0)
 
-        change_ds.plot(
+        pcm = change_ds.plot(
             ax=ax[i][j],
             cmap="seismic",
             vmin=-100,
             vmax=100,
-            cbar_kwargs={
-                "label": r"NO$_{2}$ col. change (%)",
-                "orientation": "horizontal",
-                "fraction": 0.047,
-                "extend": "both",
-            },
+            add_colorbar=False
+            # legend=False
+            # cbar_kwargs={
+            #     "label": r"NO$_{2}$ col. change (%)",
+            #     "orientation": "horizontal",
+            #     "fraction": 0.047,
+            #     "extend": "both",
+            # },
         )
         # bound_lv0.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=2)
         coal_gdf.plot(
             ax=ax[i][j], color="green", markersize=30, label="Coal power plant"
         )
         bound_lv1.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-        ax[i][j].set_xlabel("longitude")
-        ax[i][j].set_ylabel("latitude")
-        ax[i][j].legend()
+        ax[i][j].set_xlabel("")
+        ax[i][j].set_ylabel("")
+        ax[i][j].legend(
+            bbox_to_anchor=(0, 0),
+            loc="lower left",
+        )
         ax[i][j].set_title(tk)
 
         ax[i][j].set_xlim([22, 41])
         ax[i][j].set_ylim([44, 53])
         j += 1
         # plt.title(tk, fontsize=18)
+    figure.colorbar(
+        pcm,
+        ax=ax[:, :],
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
     plt.suptitle(
         rf"Observed_Deweathered_NO$_{2}$_Difference_{year} (Pixel level)", fontsize=18
     )
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.95)
+    # plt.tight_layout()
+    # plt.subplots_adjust(top=0.95)
 
 
 def plot_obs_change_map():
 
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
 
     org_ds = prep_s5p_ds()
 
@@ -300,7 +315,7 @@ def plot_obs_change_map():
     # years = [2019, 2020, 2021]
     tks = list(sd_ed.keys())
     nrow = int(len(tks) / 2)
-    figure, ax = plt.subplots(nrow, 2, figsize=(16, 6.5 * nrow))
+    figure, ax = plt.subplots(nrow, 2, figsize=(10, 4 * nrow), layout="constrained")
 
     for y in years:
         j = 0
@@ -326,27 +341,45 @@ def plot_obs_change_map():
                 (ds_event[S5P_OBS_COL] - ds_y[S5P_OBS_COL]) * 100 / ds_y[S5P_OBS_COL]
             )
 
-            ds_change.plot(
+            pcm = ds_change.plot(
                 ax=ax[i][j],
                 cmap="seismic",
                 vmin=-70,
                 vmax=70,
-                cbar_kwargs={
-                    "label": r"NO$_{2}$ col. change (%)",
-                    "orientation": "horizontal",
-                    "fraction": 0.047,
-                    "extend": "both",
-                },
+                add_colorbar=False
+                # cbar_kwargs={
+                #     "label": r"NO$_{2}$ col. change (%)",
+                #     "orientation": "horizontal",
+                #     "fraction": 0.047,
+                #     "extend": "both",
+                # },
+            )
+            coal_gdf.plot(
+                ax=ax[i][j], color="green", markersize=30, label="Coal power plant"
             )
             bound_lv1.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
             # plt.title(f"OBS_2022_{y}_{tk}", fontsize=18)
-            ax[i][j].set_xlabel("longitude")
-            ax[i][j].set_ylabel("latitude")
+            ax[i][j].set_xlabel("")
+            ax[i][j].set_ylabel("")
+            ax[i][j].legend(
+                bbox_to_anchor=(0, 0),
+                loc="lower left",
+            )
             ax[i][j].set_title(tk)
 
             ax[i][j].set_xlim([22, 41])
             ax[i][j].set_ylim([44, 53])
             j += 1
+
+    figure.colorbar(
+        pcm,
+        ax=ax[:, :],
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
     plt.suptitle(rf"Observed_NO$_{2}$_Difference_2020_{y}", fontsize=18)
     # plt.tight_layout()
     # plt.subplots_adjust(top=0.9)
@@ -485,7 +518,6 @@ def plot_pred_true(ds):
 #%%
 # Plot fire location and conflict point
 
-
 def plot_fire_conflict():
 
     # data_df = prep_fire_df() if data_type == "Fire Spot" else prep_conflict_df()
@@ -523,7 +555,7 @@ def plot_fire_conflict():
             df = fire_df.loc[mask]
 
             coal_gdf.plot(
-                ax=ax_fire[i][j], color="blue", markersize=20, label=label_coal
+                ax=ax_fire[i][j], color="green", markersize=20, label=label_coal
             )
             df.plot(ax=ax_fire[i][j], color=color_fire, markersize=2, label=label_fire)
             bound_lv1.plot(
