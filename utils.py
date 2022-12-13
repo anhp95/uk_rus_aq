@@ -64,6 +64,7 @@ def prep_ds(org_ds, year):
     else:
         ds = org_ds.dw_2022
 
+    ds = ds[[S5P_PRED_COL, S5P_OBS_COL]]
     ds = ds.rio.write_crs("epsg:4326", inplace=True)
     return ds.rio.set_spatial_dims("lon", "lat", inplace=True)
 

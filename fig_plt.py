@@ -8,71 +8,40 @@ import numpy as np
 from utils import *
 from const import *
 
-#%%
 # Bubble plot
-def plot_change_bubble(geo_df, cols):
-    cmap = "coolwarm"
-    for col in cols:
+def plot_obs_bubble(event="war"):
 
-        figure, ax = plt.subplots(figsize=(16, 8))
-        bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-        bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
-
-        g = sns.scatterplot(
-            data=geo_df,
-            x=geo_df.centroid.x,
-            y=geo_df.centroid.y,
-            hue=col,
-            # hue_norm=(-20, 20),
-            size="Population",
-            sizes=(150, 500),
-            palette=cmap,
-            ax=ax,
-        )
-
-        g.legend(bbox_to_anchor=(1.0, 1.0), ncol=1)
-
-        # norm = plt.Normalize(-30, 30)
-        norm = plt.Normalize(geo_df[col].min(), geo_df[col].max())
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
-        clb = g.figure.colorbar(sm)
-        clb.ax.set_ylabel(r"NO$_{2}$ col. change (%)")
-        clb.ax.yaxis.set_label_position("right")
-        g.set(title=col)
-
-        h, l = g.get_legend_handles_labels()
-        plt.legend(
-            h[-7:],
-            l[-7:],
-            bbox_to_anchor=(1, 1),
-            loc="upper right",
-            borderaxespad=0.0,
-            fontsize=13,
-        )
-
-
-def plot_obs_bubble():
+    bound_lv1 = gpd.read_file(UK_SHP_ADM1)
 
     org_ds = prep_s5p_ds()
     bound_lv2, crs = get_bound_pop_lv2()
     adm_col = "ADM2_EN"
     list_city = bound_lv2[adm_col].values
 
-    # sd_ed = PERIOD_DICT[2022]
-    sd_ed = PERIOD_DICT[2020]
-
-    # years = [2019, 2020, 2021, 2022]
-    years = [2019, 2020]
+    year_target = 2022 if event == "war" else 2020
+    sd_ed = PERIOD_DICT[year_target]
+    tks = list(sd_ed.keys())
+    year_srcs = [i for i in range(2019, year_target)]
 
     obs_dict_year = {}
 
-    for year in years:
-        for tk in sd_ed.keys():
+    cmap = "RdYlBu_r"
+    nrows = int((len(year_srcs) + 1) / 2)
+    ncols = 2
+
+    self_figure, self_ax = plt.subplots(
+        nrows, 2, figsize=(6 * ncols, 5 * nrows), layout="constrained"
+    )
+
+    j = 0
+    for i, year in enumerate(year_srcs + [year_target]):
+        i = int(i / 2)
+        j = 0 if j > 1 else j
+        for tk in tks[:2]:
             obs_dict_year[f"{year}_{tk}"] = []
             t = sd_ed[tk]
-            sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-            ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
+            sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
+            ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
 
             for city in list_city:
                 geometry = bound_lv2.loc[bound_lv2[adm_col] == city].geometry
@@ -85,23 +54,349 @@ def plot_obs_bubble():
                 obs_dict_year[f"{year}_{tk}"].append(adm_ds[S5P_OBS_COL].item())
             bound_lv2[f"{year}_{tk}"] = obs_dict_year[f"{year}_{tk}"]
 
-    change_dict = {}
-    for y in years[:-1]:
-        for tk in sd_ed.keys():
-            change_dict[f"OBS_2020_{y}_{tk}"] = (
-                (bound_lv2[f"2020_{tk}"] - bound_lv2[f"{y}_{tk}"])
-                * 100
-                / bound_lv2[f"{y}_{tk}"]
-            )
+        col = f"{year} {tks[1]} - {tks[0]} Difference"
+        bound_lv2[col] = (
+            (bound_lv2[f"{year}_{tks[1]}"] - bound_lv2[f"{year}_{tks[0]}"])
+            * 100
+            / bound_lv2[f"{year}_{tks[0]}"]
+        )
+        # Plot
+        ax = self_ax[i][j] if nrows > 1 else self_ax[j]
+        bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
+        norm_val = 20
+        g = sns.scatterplot(
+            data=bound_lv2,
+            x=bound_lv2.centroid.x,
+            y=bound_lv2.centroid.y,
+            hue=col,
+            hue_norm=(-1 * norm_val, norm_val),
+            size="Population",
+            sizes=(150, 500),
+            palette=cmap,
+            ax=ax,
+        )
+        norm = plt.Normalize(-1 * norm_val, norm_val)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
 
-    df_no2_change = pd.DataFrame.from_dict(change_dict)
-    df_no2_change["Population"] = bound_lv2["Population"].values
-    geo_df = gpd.GeoDataFrame(
-        df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
+        g.set(title=rf"{col}")
+
+        h, l = g.get_legend_handles_labels()
+        l = [f"{li}M" if li != "Population" else li for li in l]
+        legend = ax.legend(
+            h[-7:],
+            l[-7:],
+            bbox_to_anchor=(0, 0),
+            loc="lower left",
+            borderaxespad=0.0,
+            # fontsize=13,
+            edgecolor="black",
+        )
+        legend.get_frame().set_alpha(None)
+        j += 1
+
+    self_figure.colorbar(
+        sm,
+        ax=self_ax[:, :] if nrows > 1 else self_ax[:],
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
     )
+    plt.suptitle(rf"Annual Before-During changes", fontsize=18)
 
-    plot_change_bubble(geo_df, list(change_dict.keys()))
-    return geo_df
+    # inter bf af change
+    nrows = len(year_srcs)
+    ncols = 2
+    inter_figure, inter_ax = plt.subplots(
+        nrows, ncols, figsize=(6 * ncols, 5 * nrows), layout="constrained"
+    )
+    j = 0
+
+    for i, year_src in enumerate(year_srcs):
+        for j, tk in enumerate(tks[:2]):
+
+            col = f"{year_target}_{tk} - {year_src}_{tk} Difference"
+            bound_lv2[col] = (
+                (bound_lv2[f"{year_target}_{tk}"] - bound_lv2[f"{year_src}_{tk}"])
+                * 100
+                / bound_lv2[f"{year_src}_{tk}"]
+            )
+            ax = inter_ax[i][j] if nrows > 1 else inter_ax[j]
+            bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
+            g = sns.scatterplot(
+                data=bound_lv2,
+                x=bound_lv2.centroid.x,
+                y=bound_lv2.centroid.y,
+                hue=col,
+                hue_norm=(-1 * norm_val, norm_val),
+                size="Population",
+                sizes=(150, 500),
+                palette=cmap,
+                ax=ax,
+            )
+            norm = plt.Normalize(-1 * norm_val, norm_val)
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])
+
+            g.set(title=rf"{col}")
+
+            h, l = g.get_legend_handles_labels()
+            l = [f"{li}M" if li != "Population" else li for li in l]
+            legend = ax.legend(
+                h[-7:],
+                l[-7:],
+                bbox_to_anchor=(0, 0),
+                loc="lower left",
+                borderaxespad=0.0,
+                # fontsize=13,
+                edgecolor="black",
+            )
+            legend.get_frame().set_alpha(None)
+    inter_figure.colorbar(
+        sm,
+        ax=inter_ax[:, :] if nrows > 1 else inter_ax[:],
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
+    plt.suptitle(rf"Interannual changes", fontsize=18)
+    # plt.tight_layout()
+
+
+def plot_obs_change_adm2():
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
+    adm_col = "ADM2_EN"
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+    org_ds = prep_s5p_ds()
+
+    year_target = 2022
+    sd_ed = PERIOD_DICT[year_target]
+    year_srcs = [i for i in range(2019, year_target)]
+
+    tks = list(sd_ed.keys())
+
+    pixel_change_dict = {}
+
+    for year in (year_srcs + [year_target]):
+
+        for tk in tks:
+            t = sd_ed[tk]
+            sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
+            ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
+            pixel_change_dict[f"{year}_{tk}"] = org_ds.sel(time=slice(sd, ed)).mean("time")[
+                [S5P_OBS_COL]
+            ]
+        pixel_change_dict[f"self_{year}"] = (pixel_change_dict[f"{year}_{tks[1]}"] - pixel_change_dict[f"{year}_{tks[0]}"])*100/pixel_change_dict[f"{year}_{tks[0]}"]
+        self_year_change = []
+        for adm2 in bound_lv2[adm_col].values:
+            geometry = bound_lv2.loc[bound_lv2[adm_col] == adm2].geometry
+            self_year_change.append(pixel_change_dict[f"self_{year}"].rio.clip(geometry, bound_lv2.crs).mean(dim=["lat", "lon"])[S5P_OBS_COL].item())
+        bound_lv2[f"self_{year}"] = self_year_change
+
+
+    for tk in tks:
+        for year in year_srcs:
+
+            pixel_change_year = (pixel_change_dict[f"{year_target}_{tk}"] - pixel_change_dict[f"{year}_{tk}"])*100/pixel_change_dict[f"{year}_{tk}"]
+            year_tk_items = []
+            for adm2 in bound_lv2[adm_col].values:
+                geometry = bound_lv2.loc[bound_lv2[adm_col] == adm2].geometry
+
+                    # cal obs deweather no2 ds
+                change_adm_no2_ds = (
+                    pixel_change_year.rio.clip(geometry, bound_lv2.crs)
+                    .mean(dim=["lat", "lon"])[S5P_OBS_COL].item()
+                )
+                year_tk_items.append(change_adm_no2_ds)
+            bound_lv2[f"inter_{year}_{tk}"] = year_tk_items
+
+    self_ref_fig, self_ref_ax = plt.subplots(2, 2, figsize=(6*2, 5 * 2), layout="constrained")
+    inter_ref_fig, inter_ref_ax = plt.subplots(2, 3, figsize=(6*3, 5 * 2), layout="constrained")
+
+    inter_war_fig, inter_war_ax = plt.subplots(len(tks[2:]), 3, figsize=(6 * 3, 5*len(tks[2:])), layout="constrained")
+
+    #self refugee change
+    j=0
+    for i, year in enumerate(year_srcs + [year_target]):
+        i = int(i/2)
+        j = 0 if j > 1 else j
+        col = f"self_{year}"
+        bound_lv2.plot(
+            column=col, ax=self_ref_ax[i][j], cmap="coolwarm", vmin=-70, vmax=70, legend=True, legend_kwds={
+                        "label": "Number of fire spots",
+                        "orientation": "horizontal",
+                    },
+        )
+        self_ref_ax[i][j].set_title(col, fontsize=14)
+        bound_lv2.plot(ax=self_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+        self_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+        j += 1
+    #inter refugee change
+    for i, tk in enumerate(tks[:2]):
+        for j, year in enumerate(year_srcs):
+            col = f"inter_{year}_{tk}"
+            bound_lv2.plot(
+                column=col, ax=inter_ref_ax[i][j], cmap="coolwarm", vmin=-70, vmax=70, legend=True, legend_kwds={
+                            "label": "Number of fire spots",
+                            "orientation": "horizontal",
+                        },
+            )
+            inter_ref_ax[i][j].set_title(col, fontsize=14)
+            bound_lv2.plot(ax=inter_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+            inter_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+    #inter war change
+    for i, tk in enumerate(tks[2:]):
+        for j, year in enumerate(year_srcs):
+            col = f"inter_{year}_{tk}"
+            bound_lv2.plot(
+                column=col, ax=inter_war_ax[i][j], cmap="coolwarm", vmin=-30, vmax=30, legend=True, legend_kwds={
+                            "label": "Number of fire spots",
+                            "orientation": "horizontal",
+                        },
+            )
+            inter_war_ax[i][j].set_title(col, fontsize=14)
+            bound_lv2.plot(ax=inter_war_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+            inter_war_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+
+
+def plot_obs_change_map(event="war"):
+
+    bound_lv1 = gpd.read_file(UK_SHP_ADM1)
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+
+    org_ds = prep_s5p_ds()
+
+    year_target = 2022 if event == "war" else 2020
+    sd_ed = PERIOD_DICT[year_target]
+    year_srcs = [i for i in range(2019, year_target)]
+
+    tks = list(sd_ed.keys())
+
+    pixel_change_dict = {}
+
+    for i, year in enumerate(year_srcs + [year_target]):
+
+        for tk in tks:
+            t = sd_ed[tk]
+            sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
+            ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
+            pixel_change_dict[f"{year}_{tk}"] = org_ds.sel(time=slice(sd, ed)).mean(
+                "time"
+            )[[S5P_OBS_COL]]
+
+    # Plot self changes for pixel
+    nrow = int((len(year_srcs) + 1) / 2)
+    self_figure, self_ax = plt.subplots(
+        nrow, 2, figsize=(10, 4 * nrow), layout="constrained"
+    )
+    j = 0
+    for i, year in enumerate(year_srcs + [year_target]):
+        i = int(i / 2)
+        j = 0 if j > 1 else j
+        ds_change = (
+            (
+                pixel_change_dict[f"{year}_{tks[1]}"]
+                - pixel_change_dict[f"{year}_{tks[0]}"]
+            )
+            * 100
+            / pixel_change_dict[f"{year}_{tks[0]}"]
+        )[S5P_OBS_COL]
+
+        pcm = ds_change.plot(
+            ax=self_ax[i][j], cmap="coolwarm", vmin=-70, vmax=70, add_colorbar=False
+        )
+        coal_gdf.plot(
+            ax=self_ax[i][j], color="green", markersize=30, label="Coal power plant"
+        )
+        bound_lv1.plot(ax=self_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+        # plt.title(f"OBS_2022_{y}_{tk}", fontsize=18)
+        self_ax[i][j].set_xlabel("")
+        self_ax[i][j].set_ylabel("")
+        self_ax[i][j].legend(
+            bbox_to_anchor=(0, 0),
+            loc="lower left",
+        )
+        self_ax[i][j].set_title(year)
+
+        self_ax[i][j].set_xlim([22, 41])
+        self_ax[i][j].set_ylim([44, 53])
+        j += 1
+
+    self_figure.colorbar(
+        pcm,
+        ax=self_ax[:, :],
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
+    plt.suptitle(rf"Observed_NO$_{2}$_Difference_{year_target}", fontsize=18)
+    # plt.tight_layout()
+
+    # Plot inter changes
+    nrows = len(tks)
+    ncols = 3
+    inter_figure, inter_ax = plt.subplots(
+        nrows, ncols, figsize=(6 * ncols, 4 * nrows), layout="constrained"
+    )
+    for i, tk in enumerate(tks):
+        for j, year in enumerate(year_srcs):
+
+            ds_change = (
+                (
+                    pixel_change_dict[f"{year_target}_{tk}"]
+                    - pixel_change_dict[f"{year}_{tk}"]
+                )
+                * 100
+                / pixel_change_dict[f"{year}_{tk}"]
+            )[S5P_OBS_COL]
+
+            pcm = ds_change.plot(
+                ax=inter_ax[i][j],
+                cmap="coolwarm",
+                vmin=-70,
+                vmax=70,
+                add_colorbar=False,
+            )
+            coal_gdf.plot(
+                ax=inter_ax[i][j],
+                color="green",
+                markersize=30,
+                label="Coal power plant",
+            )
+            bound_lv1.plot(
+                ax=inter_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
+            )
+            # plt.title(f"OBS_2022_{y}_{tk}", fontsize=18)
+            inter_ax[i][j].set_xlabel("")
+            inter_ax[i][j].set_ylabel("")
+            inter_ax[i][j].legend(
+                bbox_to_anchor=(0, 0),
+                loc="lower left",
+            )
+            inter_ax[i][j].set_title(f"{year}_{tk}")
+
+            inter_ax[i][j].set_xlim([22, 41])
+            inter_ax[i][j].set_ylim([44, 53])
+
+    inter_figure.colorbar(
+        pcm,
+        ax=inter_ax[:, :],
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
 
 
 def plot_obs_bau_bubble(org_ds, year):
@@ -147,38 +442,41 @@ def plot_obs_bau_bubble(org_ds, year):
         df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
     )
 
-    cmap = "seismic"
-    nrow = int(len(tks) / 2)
-    figure, ax = plt.subplots(nrow, 2, figsize=(12, 4 * nrow), layout="constrained")
+    cmap = "RdYlBu_r"
+    nrows = int(len(tks) / 2)
+    ncols = 2
+    figure, ax = plt.subplots(
+        nrows, ncols, figsize=(6 * ncols, 5 * nrows), layout="constrained"
+    )
 
     j = 0
     for i, col in enumerate(tks):
 
         i = int(i / 2)
         j = 0 if j > 1 else j
-
+        sub_ax = ax[i][j] if nrows > 1 else ax[j]
         bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-        bound_lv1.plot(ax=ax[i][j], facecolor="white", edgecolor="black", lw=0.7)
-
+        bound_lv1.plot(ax=sub_ax, facecolor="white", edgecolor="black", lw=0.7)
+        norm_val = 15
         g = sns.scatterplot(
             data=geo_df,
             x=geo_df.centroid.x,
             y=geo_df.centroid.y,
             hue=col,
-            hue_norm=(-30, 30),
+            hue_norm=(-15, 15),
             size="Population",
             sizes=(150, 500),
             palette=cmap,
-            ax=ax[i][j],
+            ax=sub_ax,
         )
 
         # g.legend(
         #     bbox_to_anchor=(1.0, 1.0),
         #     ncol=1,
-        #     bbox_transform=ax[i][j].transAxes,
+        #     bbox_transform=sub_ax.transAxes,
         # )
 
-        norm = plt.Normalize(-30, 30)
+        norm = plt.Normalize(-15, 15)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
 
@@ -195,7 +493,7 @@ def plot_obs_bau_bubble(org_ds, year):
 
         h, l = g.get_legend_handles_labels()
         l = [f"{li}M" if li != "Population" else li for li in l]
-        legend = ax[i][j].legend(
+        legend = sub_ax.legend(
             h[-7:],
             l[-7:],
             bbox_to_anchor=(0, 0),
@@ -209,7 +507,7 @@ def plot_obs_bau_bubble(org_ds, year):
         j += 1
     figure.colorbar(
         sm,
-        ax=ax[:, :],
+        ax=ax[:, :] if nrows > 1 else ax[:],
         # ax=ax[:,1],
         # fraction=0.47,
         orientation="horizontal",
@@ -236,7 +534,10 @@ def plot_obs_bau_map(org_ds, year):
 
     tks = list(sd_ed.keys())
     nrow = int(len(tks) / 2)
-    figure, ax = plt.subplots(nrow, 2, figsize=(10, 4 * nrow), layout="constrained")
+    ncols = 2
+    figure, ax = plt.subplots(
+        nrow, ncols, figsize=(6 * ncols, 4 * nrow), layout="constrained"
+    )
     j = 0
     for i, tk in enumerate(tks):
 
@@ -257,7 +558,7 @@ def plot_obs_bau_map(org_ds, year):
 
         pcm = change_ds.plot(
             ax=ax[i][j],
-            cmap="seismic",
+            cmap="coolwarm",
             vmin=-100,
             vmax=100,
             add_colorbar=False
@@ -300,93 +601,6 @@ def plot_obs_bau_map(org_ds, year):
     )
     # plt.tight_layout()
     # plt.subplots_adjust(top=0.95)
-
-
-def plot_obs_change_map(y_event, y_bau):
-
-    bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-    coal_gdf = gpd.read_file(UK_COAL_SHP)
-
-    org_ds = prep_s5p_ds()
-
-    sd_ed = PERIOD_DICT[y_event]
-    years = [y_bau]
-    # sd_ed = PERIOD_DICT[2022]
-    # years = [2019, 2020, 2021]
-    tks = list(sd_ed.keys())
-    nrow = int(len(tks) / 2)
-    figure, ax = plt.subplots(nrow, 2, figsize=(10, 4 * nrow), layout="constrained")
-
-    for y in years:
-        j = 0
-        for i, tk in enumerate(tks):
-
-            i = int(i / 2)
-            j = 0 if j > 1 else j
-
-            t = sd_ed[tk]
-
-            sd_event = np.datetime64(
-                f"{y_event}-{t['sm']}-{t['sd']}T00:00:00.000000000"
-            )
-            ed_event = np.datetime64(
-                f"{y_event}-{t['em']}-{t['ed']}T00:00:00.000000000"
-            )
-
-            sd_y = np.datetime64(f"{y}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-            ed_y = np.datetime64(f"{y}-{t['em']}-{t['ed']}T00:00:00.000000000")
-
-            ds_event = org_ds.sel(time=slice(sd_event, ed_event)).mean("time")[
-                [S5P_OBS_COL]
-            ]
-            ds_y = org_ds.sel(time=slice(sd_y, ed_y)).mean("time")[[S5P_OBS_COL]]
-
-            ds_change = (
-                (ds_event[S5P_OBS_COL] - ds_y[S5P_OBS_COL]) * 100 / ds_y[S5P_OBS_COL]
-            )
-
-            pcm = ds_change.plot(
-                ax=ax[i][j],
-                cmap="seismic",
-                vmin=-70,
-                vmax=70,
-                add_colorbar=False
-                # cbar_kwargs={
-                #     "label": r"NO$_{2}$ col. change (%)",
-                #     "orientation": "horizontal",
-                #     "fraction": 0.047,
-                #     "extend": "both",
-                # },
-            )
-            coal_gdf.plot(
-                ax=ax[i][j], color="green", markersize=30, label="Coal power plant"
-            )
-            bound_lv1.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-            # plt.title(f"OBS_2022_{y}_{tk}", fontsize=18)
-            ax[i][j].set_xlabel("")
-            ax[i][j].set_ylabel("")
-            ax[i][j].legend(
-                bbox_to_anchor=(0, 0),
-                loc="lower left",
-            )
-            ax[i][j].set_title(tk)
-
-            ax[i][j].set_xlim([22, 41])
-            ax[i][j].set_ylim([44, 53])
-            j += 1
-
-    figure.colorbar(
-        pcm,
-        ax=ax[:, :],
-        orientation="horizontal",
-        extend="both",
-        label="NO$_{2}$ col. change (%)",
-        location="bottom",
-        shrink=0.4,
-    )
-    plt.suptitle(rf"Observed_NO$_{2}$_Difference_{y_event}_{y}", fontsize=18)
-    # plt.tight_layout()
-    # plt.subplots_adjust(top=0.9)
 
 
 # %%
@@ -660,6 +874,7 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
     df[[S5P_PRED_COL, S5P_OBS_COL, OBS_PRED_CHNAGE]].plot.line(
         ax=ax, color=pred_truth_diff, legend=False
     )
+    ax.set_ylim([-40, 200])
 
     if set_ylabel:
         ax.set_ylabel(NO2_UNIT)
@@ -895,24 +1110,54 @@ def plot_ppl_obs_line():
         df = plot_trend_line(ds_city, ppl_name)
 
 
-def plot_weather_params(ds):
-    year = 2019
-    sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
-    ed = np.datetime64(f"{year}-03-31T00:00:00.000000000")
-    ts = ds.era5.sel(time=slice(sd, ed))
+def plot_weather_params(ds, y_src=2019, y_tgrt=2020, var="wind"):
+    # war start date before 02/09-24 - after 02/24 - 03/11
+    # s_src_date = "02-09T00:00:00.000000000"
+    # e_src_date = "02-24T00:00:00.000000000"
 
-    year = 2022
-    sd = np.datetime64(f"{year}-01-01T00:00:00.000000000")
-    ed = np.datetime64(f"{year}-03-31T00:00:00.000000000")
-    ts_2022 = ds.era5.sel(time=slice(sd, ed))
+    # covid before 03/10-25 after 03/25-04/09
+    s_src_date = "02-25T00:00:00.000000000"
+    e_src_date = "03-25T00:00:00.000000000"
+    title = "Feb-25 to Mar-25"
 
-    figure, ax = plt.subplots(figsize=(10, 6))
-    xr.plot.hist(ts_2022["d2m"], ec="b", fc="None", histtype="step")
-    xr.plot.hist(ts["d2m"], ec="r", fc="None", histtype="step")
+    ylabel = "Relative Frequency (%)"
+
+    if var == "wind":
+        xlabel = "Wind speed (m/s)"
+
+        u10 = ds.era5["u10"]
+        v10 = ds.era5["v10"]
+        ds.era5[var] = np.sqrt(u10**2 + v10**2)
+    elif var == "t2m":
+        xlabel = "Temperature (K)"
+    elif var == "blh":
+        xlabel = "Boundary layer height (m)"
+
+    sd = np.datetime64(f"{y_src}-{s_src_date}")
+    ed = np.datetime64(f"{y_src}-{e_src_date}")
+    ts_src = ds.era5.sel(time=slice(sd, ed)).mean("time")[var].values.reshape(-1)
+    w_src = np.ones_like(ts_src) * 100 / ts_src.size
+
+    sd = np.datetime64(f"{y_tgrt}-{s_src_date}")
+    ed = np.datetime64(f"{y_tgrt}-{e_src_date}")
+    t_tgrt = ds.era5.sel(time=slice(sd, ed)).mean("time")[var].values.reshape(-1)
+    w_tgrt = np.ones_like(t_tgrt) * 100 / t_tgrt.size
+
+    print(t_tgrt.shape, w_tgrt.shape)
+    print(ts_src.shape, w_src.shape)
+
+    figure, ax = plt.subplots(figsize=(4, 4))
+    ax.hist(t_tgrt, weights=w_tgrt, ec="b", fc="None", histtype="step", label=y_tgrt)
+    ax.hist(ts_src, weights=w_src, ec="r", fc="None", histtype="step", label=y_src)
+    ax.legend()
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
 
-def plot_obs_bau_adm2(org_ds, year):
+def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
 
+    # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
     ds = prep_ds(org_ds, year)
 
     conflict_ds = prep_conflict_df()
@@ -929,7 +1174,7 @@ def plot_obs_bau_adm2(org_ds, year):
 
     list_adm = bound_lv2[adm_col].values
 
-    tks = list(sd_ed.keys())[2:]
+    tks = list(sd_ed.keys())
     for tk in tks:
 
         dict_no2_change[tk] = []
@@ -973,24 +1218,18 @@ def plot_obs_bau_adm2(org_ds, year):
         bound_lv2[f"conflict_{tk}"] = dict_conflict_change[tk]
         bound_lv2[f"fire_{tk}"] = dict_fire_change[tk]
 
-    figure, ax = plt.subplots(len(tks), 3, figsize=(30, 7 * len(tks)))
+    nrows = 1 if mode[0] == "2" else len(tks[2:])
 
-    for i, tk in enumerate(tks):
+    # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
+    ncols = int(mode[0])
+    figure, ax = plt.subplots(
+        nrows, ncols, figsize=(6 * ncols, 5 * nrows), layout="constrained"
+    )
+    if mode == "2_cf":
+        t = tks[1]
         bound_lv2.plot(
-            column=f"war_{tk}",
-            ax=ax[i][0],
-            legend=True,
-            cmap="coolwarm",
-            vmin=-20,
-            vmax=20,
-            legend_kwds={
-                "label": r"NO$_{2}$ col. change (%)",
-                "orientation": "horizontal",
-            },
-        )
-        bound_lv2.plot(
-            column=f"conflict_{tk}",
-            ax=ax[i][1],
+            column=f"conflict_{t}",
+            ax=ax[0],
             legend=True,
             cmap="Reds",
             legend_kwds={
@@ -1000,18 +1239,89 @@ def plot_obs_bau_adm2(org_ds, year):
         )
 
         bound_lv2.plot(
-            column=f"fire_{tk}",
-            ax=ax[i][2],
+            column=f"fire_{t}",
+            ax=ax[1],
             legend=True,
             cmap="OrRd",
-            legend_kwds={"label": "Number of fire spots", "orientation": "horizontal"},
+            legend_kwds={
+                "label": "Number of fire spots",
+                "orientation": "horizontal",
+            },
         )
+        ax[0].set_title(f"Conflict Locations", fontsize=14)
+        ax[1].set_title(f"Fire Locations", fontsize=14)
+        for i in range(len(ax)):
+            bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
+            ax[i].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+        plt.suptitle(rf"{year} ({t})", fontsize=18)
+    elif mode == "2_no2_bau":
+        for i in [0, 1]:
+            bound_lv2.plot(
+                column=f"war_{tks[i]}",
+                ax=ax[i],
+                legend=True,
+                cmap="coolwarm",
+                vmin=-20,
+                vmax=20,
+                legend_kwds={
+                    "label": r"NO$_{2}$ col. change (%)",
+                    "orientation": "horizontal",
+                },
+            )
+            ax[i].set_title(f"({year} {tks[i]})", fontsize=14)
+            bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
+            ax[i].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+        plt.suptitle(rf"OBS - BAU NO$_{2}$", fontsize=18)
+    elif mode == "3_cf_no2_bau":
+        for i, tk in enumerate(tks[2:]):
+            legend = False if i < 4 else True
+            bound_lv2.plot(
+                column=f"war_{tk}",
+                ax=ax[i][0],
+                legend=legend,
+                cmap="coolwarm",
+                vmin=-20,
+                vmax=20,
+                legend_kwds={
+                    "label": r"NO$_{2}$ col. change (%)",
+                    "orientation": "horizontal",
+                },
+            )
+            bound_lv2.plot(
+                column=f"conflict_{tk}",
+                ax=ax[i][1],
+                legend=legend,
+                cmap="Reds",
+                vmin=0,
+                vmax=300,
+                legend_kwds={
+                    "label": "Number of conflict spots",
+                    "orientation": "horizontal",
+                },
+            )
 
-        for j in range(len(ax[i])):
-            bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-            ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+            bound_lv2.plot(
+                column=f"fire_{tk}",
+                ax=ax[i][2],
+                legend=legend,
+                cmap="OrRd",
+                vmin=0,
+                vmax=600,
+                legend_kwds={
+                    "label": "Number of fire spots",
+                    "orientation": "horizontal",
+                },
+            )
 
-        ax[i][0].set_title(f"Observation and Deweather Difference -{tk}-{year}")
-        ax[i][1].set_title(f"Conflict Locations-{tk}-{year}")
-        ax[i][2].set_title(f"Fire Locations-{tk}-{year}")
+            for j in range(len(ax[i])):
+                bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+                ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+
+            ax[i][0].set_title(rf"OBS - BAU NO$_{2}$ ({tk})", fontsize=14)
+            ax[i][1].set_title(f"Conflict Locations ({tk})", fontsize=14)
+            ax[i][2].set_title(f"Fire Locations ({tk})", fontsize=14)
+        plt.suptitle(
+            rf"OBS - BAU NO$_{2}$ , Conflict and Fire Locations ({year})",
+            fontsize=18,
+        )
     # plt.title(tk, fontsize=18)

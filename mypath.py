@@ -46,6 +46,7 @@ CL_NO2_FILES = glob.glob(os.path.join(NO2_DIR, "UK_RUS", "*.tif"))
 # POP
 POP_FILE = os.path.join(BASE_DIR, "pop", "uk_pop_2020.tif")
 CITY_POP = os.path.join(BASE_DIR, "pop", "city_pop.csv")
+BORDER_CROSS = os.path.join(BASE_DIR, "border_cross", "border_cross.shp")
 
 # LAT LON DIR
 ERA5_LAT_FILE = os.path.join(BASE_DIR, "interp_latlon", "era5_lat.npy")
