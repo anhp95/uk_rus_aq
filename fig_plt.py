@@ -4,6 +4,9 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import metpy.calc as mpcalc
+
+from windrose import WindroseAxes
 
 from utils import *
 from const import *
@@ -168,10 +171,13 @@ def plot_obs_bubble(event="war"):
         shrink=0.4,
     )
     plt.suptitle(rf"Interannual changes", fontsize=18)
+
+    return bound_lv2
     # plt.tight_layout()
 
 
 def plot_obs_change_adm2():
+    cmap = "RdYlBu_r"
     bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     adm_col = "ADM2_EN"
     coal_gdf = gpd.read_file(UK_COAL_SHP)
@@ -185,86 +191,177 @@ def plot_obs_change_adm2():
 
     pixel_change_dict = {}
 
-    for year in (year_srcs + [year_target]):
+    for year in year_srcs + [year_target]:
 
         for tk in tks:
             t = sd_ed[tk]
             sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
             ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
-            pixel_change_dict[f"{year}_{tk}"] = org_ds.sel(time=slice(sd, ed)).mean("time")[
-                [S5P_OBS_COL]
-            ]
-        pixel_change_dict[f"self_{year}"] = (pixel_change_dict[f"{year}_{tks[1]}"] - pixel_change_dict[f"{year}_{tks[0]}"])*100/pixel_change_dict[f"{year}_{tks[0]}"]
+            pixel_change_dict[f"{year}_{tk}"] = org_ds.sel(time=slice(sd, ed)).mean(
+                "time"
+            )[[S5P_OBS_COL]]
+        pixel_change_dict[f"self_{year}"] = (
+            (
+                pixel_change_dict[f"{year}_{tks[1]}"]
+                - pixel_change_dict[f"{year}_{tks[0]}"]
+            )
+            * 100
+            / pixel_change_dict[f"{year}_{tks[0]}"]
+        )
         self_year_change = []
         for adm2 in bound_lv2[adm_col].values:
             geometry = bound_lv2.loc[bound_lv2[adm_col] == adm2].geometry
-            self_year_change.append(pixel_change_dict[f"self_{year}"].rio.clip(geometry, bound_lv2.crs).mean(dim=["lat", "lon"])[S5P_OBS_COL].item())
+            self_year_change.append(
+                pixel_change_dict[f"self_{year}"]
+                .rio.clip(geometry, bound_lv2.crs)
+                .mean(dim=["lat", "lon"])[S5P_OBS_COL]
+                .item()
+            )
         bound_lv2[f"self_{year}"] = self_year_change
-
 
     for tk in tks:
         for year in year_srcs:
 
-            pixel_change_year = (pixel_change_dict[f"{year_target}_{tk}"] - pixel_change_dict[f"{year}_{tk}"])*100/pixel_change_dict[f"{year}_{tk}"]
+            pixel_change_year = (
+                (
+                    pixel_change_dict[f"{year_target}_{tk}"]
+                    - pixel_change_dict[f"{year}_{tk}"]
+                )
+                * 100
+                / pixel_change_dict[f"{year}_{tk}"]
+            )
             year_tk_items = []
             for adm2 in bound_lv2[adm_col].values:
                 geometry = bound_lv2.loc[bound_lv2[adm_col] == adm2].geometry
 
-                    # cal obs deweather no2 ds
+                # cal obs deweather no2 ds
                 change_adm_no2_ds = (
                     pixel_change_year.rio.clip(geometry, bound_lv2.crs)
-                    .mean(dim=["lat", "lon"])[S5P_OBS_COL].item()
+                    .mean(dim=["lat", "lon"])[S5P_OBS_COL]
+                    .item()
                 )
                 year_tk_items.append(change_adm_no2_ds)
             bound_lv2[f"inter_{year}_{tk}"] = year_tk_items
 
-    self_ref_fig, self_ref_ax = plt.subplots(2, 2, figsize=(6*2, 5 * 2), layout="constrained")
-    inter_ref_fig, inter_ref_ax = plt.subplots(2, 3, figsize=(6*3, 5 * 2), layout="constrained")
+    self_ref_fig, self_ref_ax = plt.subplots(
+        2, 2, figsize=(6 * 2, 5.2 * 2), layout="constrained"
+    )
+    inter_ref_fig, inter_ref_ax = plt.subplots(
+        2, 3, figsize=(6 * 3, 5.2 * 2), layout="constrained"
+    )
 
-    inter_war_fig, inter_war_ax = plt.subplots(len(tks[2:]), 3, figsize=(6 * 3, 5*len(tks[2:])), layout="constrained")
+    inter_war_fig, inter_war_ax = plt.subplots(
+        len(tks[2:]), 3, figsize=(6 * 3, 5.2 * len(tks[2:])), layout="constrained"
+    )
 
-    #self refugee change
-    j=0
+    # self refugee change
+    j = 0
     for i, year in enumerate(year_srcs + [year_target]):
-        i = int(i/2)
+        i = int(i / 2)
         j = 0 if j > 1 else j
         col = f"self_{year}"
         bound_lv2.plot(
-            column=col, ax=self_ref_ax[i][j], cmap="coolwarm", vmin=-70, vmax=70, legend=True, legend_kwds={
-                        "label": "Number of fire spots",
-                        "orientation": "horizontal",
-                    },
+            column=col,
+            ax=self_ref_ax[i][j],
+            cmap=cmap,
+            vmin=-70,
+            vmax=70,
+            legend=False,
         )
-        self_ref_ax[i][j].set_title(col, fontsize=14)
-        bound_lv2.plot(ax=self_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-        self_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+        self_ref_ax[i][j].set_title(rf"{year} ({tks[1]} - {tks[0]})", fontsize=14)
+        bound_lv2.plot(
+            ax=self_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
+        )
+        # self_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
         j += 1
-    #inter refugee change
+    norm = plt.Normalize(-70, 70)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    self_ref_fig.colorbar(
+        sm,
+        ax=self_ref_ax[:, :],
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
+    self_ref_fig.suptitle(rf'"OBS_Before_During_Change" Estimates', fontsize=18)
+    # inter refugee change
     for i, tk in enumerate(tks[:2]):
         for j, year in enumerate(year_srcs):
             col = f"inter_{year}_{tk}"
             bound_lv2.plot(
-                column=col, ax=inter_ref_ax[i][j], cmap="coolwarm", vmin=-70, vmax=70, legend=True, legend_kwds={
-                            "label": "Number of fire spots",
-                            "orientation": "horizontal",
-                        },
+                column=col,
+                ax=inter_ref_ax[i][j],
+                cmap=cmap,
+                vmin=-70,
+                vmax=70,
+                legend=False,
             )
-            inter_ref_ax[i][j].set_title(col, fontsize=14)
-            bound_lv2.plot(ax=inter_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-            inter_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
-    #inter war change
+            inter_ref_ax[i][j].set_title(
+                f"{year_target}_{tk} - {year}_{tk}", fontsize=14
+            )
+            bound_lv2.plot(
+                ax=inter_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
+            )
+            # inter_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+
+    norm = plt.Normalize(-70, 70)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    inter_ref_fig.colorbar(
+        sm,
+        ax=inter_ref_ax[:, :],
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
+    inter_ref_fig.suptitle(rf'"OBS_Year_to_Year_Change" Estimates', fontsize=18)
+
+    # inter war change
     for i, tk in enumerate(tks[2:]):
         for j, year in enumerate(year_srcs):
             col = f"inter_{year}_{tk}"
             bound_lv2.plot(
-                column=col, ax=inter_war_ax[i][j], cmap="coolwarm", vmin=-30, vmax=30, legend=True, legend_kwds={
-                            "label": "Number of fire spots",
-                            "orientation": "horizontal",
-                        },
+                column=col,
+                ax=inter_war_ax[i][j],
+                cmap=cmap,
+                vmin=-30,
+                vmax=30,
+                legend=False,
             )
-            inter_war_ax[i][j].set_title(col, fontsize=14)
-            bound_lv2.plot(ax=inter_war_ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-            inter_war_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+            inter_war_ax[i][j].set_title(
+                f"{year_target}_{tk} - {year}_{tk}", fontsize=14
+            )
+            bound_lv2.plot(
+                ax=inter_war_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
+            )
+            # inter_war_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+
+    norm = plt.Normalize(-30, 30)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    inter_war_fig.colorbar(
+        sm,
+        ax=inter_war_ax[:, :],
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="NO$_{2}$ col. change (%)",
+        location="bottom",
+        shrink=0.4,
+    )
+    inter_war_fig.suptitle(rf'"OBS_Year_to_Year_Change" Estimates', fontsize=18)
+
+    return bound_lv2
 
 
 def plot_obs_change_map(event="war"):
@@ -519,6 +616,7 @@ def plot_obs_bau_bubble(org_ds, year):
     plt.suptitle(
         rf"Observed_Deweathered_NO$_{2}$_Difference_{year} (Major cities)", fontsize=18
     )
+    return geo_df
     # plt.subplots_adjust(top=0.95)
     # return geo_df
 
@@ -1110,6 +1208,10 @@ def plot_ppl_obs_line():
         df = plot_trend_line(ds_city, ppl_name)
 
 
+def plot_wind_speed_direction(ds, year):
+    pass
+
+
 def plot_weather_params(ds, y_src=2019, y_tgrt=2020, var="wind"):
     # war start date before 02/09-24 - after 02/24 - 03/11
     # s_src_date = "02-09T00:00:00.000000000"
@@ -1147,15 +1249,32 @@ def plot_weather_params(ds, y_src=2019, y_tgrt=2020, var="wind"):
     print(ts_src.shape, w_src.shape)
 
     figure, ax = plt.subplots(figsize=(4, 4))
-    ax.hist(t_tgrt, weights=w_tgrt, ec="b", fc="None", histtype="step", label=y_tgrt)
-    ax.hist(ts_src, weights=w_src, ec="r", fc="None", histtype="step", label=y_src)
-    ax.legend()
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    if var == "wind":
+        ds.era5[f"{var}_direction"] = mpcalc.wind_direction(u10, v10)
+        ax = WindroseAxes.from_ax()
+        ax.bar(
+            ds.era5[var],
+            ds.era5[f"{var}_direction"],
+            normed=True,
+            opening=0.8,
+            edgecolor="white",
+        )
+        ax.set_legend()
+    else:
+        ax.hist(
+            t_tgrt, weights=w_tgrt, ec="b", fc="None", histtype="step", label=y_tgrt
+        )
+        ax.hist(ts_src, weights=w_src, ec="r", fc="None", histtype="step", label=y_src)
+        ax.legend()
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
 
 
 def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
+    cmap_conflict = "OrRd"
+    cmap_fire = "Reds"
+    cmap_no2 = "RdYlBu_r"
 
     # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
     ds = prep_ds(org_ds, year)
@@ -1231,10 +1350,12 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
             column=f"conflict_{t}",
             ax=ax[0],
             legend=True,
-            cmap="Reds",
+            cmap=cmap_conflict,
             legend_kwds={
                 "label": "Number of conflict spots",
                 "orientation": "horizontal",
+                "extend": "both",
+                "fraction": 0.8,
             },
         )
 
@@ -1242,17 +1363,18 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
             column=f"fire_{t}",
             ax=ax[1],
             legend=True,
-            cmap="OrRd",
+            cmap=cmap_fire,
             legend_kwds={
                 "label": "Number of fire spots",
                 "orientation": "horizontal",
+                "extend": "both",
+                "fraction": 0.8,
             },
         )
         ax[0].set_title(f"Conflict Locations", fontsize=14)
         ax[1].set_title(f"Fire Locations", fontsize=14)
         for i in range(len(ax)):
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-            ax[i].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
         plt.suptitle(rf"{year} ({t})", fontsize=18)
     elif mode == "2_no2_bau":
         for i in [0, 1]:
@@ -1260,17 +1382,18 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 column=f"war_{tks[i]}",
                 ax=ax[i],
                 legend=True,
-                cmap="coolwarm",
+                cmap=cmap_no2,
                 vmin=-20,
                 vmax=20,
                 legend_kwds={
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
+                    "extend": "both",
+                    "fraction": 0.8,
                 },
             )
             ax[i].set_title(f"({year} {tks[i]})", fontsize=14)
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-            ax[i].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
         plt.suptitle(rf"OBS - BAU NO$_{2}$", fontsize=18)
     elif mode == "3_cf_no2_bau":
         for i, tk in enumerate(tks[2:]):
@@ -1279,24 +1402,28 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 column=f"war_{tk}",
                 ax=ax[i][0],
                 legend=legend,
-                cmap="coolwarm",
+                cmap=cmap_no2,
                 vmin=-20,
                 vmax=20,
                 legend_kwds={
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
+                    "extend": "both",
+                    "fraction": 0.8,
                 },
             )
             bound_lv2.plot(
                 column=f"conflict_{tk}",
                 ax=ax[i][1],
                 legend=legend,
-                cmap="Reds",
+                cmap=cmap_conflict,
                 vmin=0,
                 vmax=300,
                 legend_kwds={
                     "label": "Number of conflict spots",
                     "orientation": "horizontal",
+                    "extend": "both",
+                    "fraction": 0.8,
                 },
             )
 
@@ -1304,18 +1431,19 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 column=f"fire_{tk}",
                 ax=ax[i][2],
                 legend=legend,
-                cmap="OrRd",
+                cmap=cmap_fire,
                 vmin=0,
                 vmax=600,
                 legend_kwds={
                     "label": "Number of fire spots",
                     "orientation": "horizontal",
+                    "extend": "both",
+                    "fraction": 0.8,
                 },
             )
 
             for j in range(len(ax[i])):
                 bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-                ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
 
             ax[i][0].set_title(rf"OBS - BAU NO$_{2}$ ({tk})", fontsize=14)
             ax[i][1].set_title(f"Conflict Locations ({tk})", fontsize=14)
@@ -1324,4 +1452,6 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
             rf"OBS - BAU NO$_{2}$ , Conflict and Fire Locations ({year})",
             fontsize=18,
         )
+    
+    return bound_lv2
     # plt.title(tk, fontsize=18)
