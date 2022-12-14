@@ -749,9 +749,9 @@ def plot_weather_params(ds, y_src=2019, y_tgrt=2020, var="wind"):
     # e_src_date = "02-24T00:00:00.000000000"
 
     # covid before 03/10-25 after 03/25-04/09
-    s_src_date = "02-25T00:00:00.000000000"
-    e_src_date = "03-25T00:00:00.000000000"
-    title = "Feb-25 to Mar-25"
+    s_src_date = "03-25T00:00:00.000000000"
+    e_src_date = "05-11T00:00:00.000000000"
+    title = "Mar-25 to May-11"
 
     ylabel = "Relative Frequency (%)"
 
@@ -780,26 +780,14 @@ def plot_weather_params(ds, y_src=2019, y_tgrt=2020, var="wind"):
     print(ts_src.shape, w_src.shape)
 
     figure, ax = plt.subplots(figsize=(4, 4))
-    if var == "wind":
-        ds.era5[f"{var}_direction"] = mpcalc.wind_direction(u10, v10)
-        ax = WindroseAxes.from_ax()
-        ax.bar(
-            ds.era5[var],
-            ds.era5[f"{var}_direction"],
-            normed=True,
-            opening=0.8,
-            edgecolor="white",
-        )
-        ax.set_legend()
-    else:
-        ax.hist(
-            t_tgrt, weights=w_tgrt, ec="b", fc="None", histtype="step", label=y_tgrt
-        )
-        ax.hist(ts_src, weights=w_src, ec="r", fc="None", histtype="step", label=y_src)
-        ax.legend()
-        ax.set_title(title)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+    ax.hist(
+        t_tgrt, weights=w_tgrt, ec="b", fc="None", histtype="step", label=y_tgrt
+    )
+    ax.hist(ts_src, weights=w_src, ec="r", fc="None", histtype="step", label=y_src)
+    ax.legend()
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
 
 def plot_obs_bau_bubble(org_ds, year):
