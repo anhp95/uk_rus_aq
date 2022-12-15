@@ -798,6 +798,7 @@ def plot_weather_params(ds, event="covid"):
                 ax[i][j].set_title(tk)
                 ax[i][j].set_xlabel(var_label_dict[var])
                 ax[i][j].set_ylabel(ylabel)
+                ax[i][j].legend(loc="upper left", bbox_to_anchor=(0, 1))
 
 
 def plot_obs_bau_bubble(org_ds, year):
