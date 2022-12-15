@@ -764,18 +764,19 @@ def plot_weather_params(ds, event="covid"):
     tks = list(sd_ed.keys())
     var_label_dict = {
         "wind": "Wind speed (m/s)",
-        "t2m": "Temperature (K)",
         "blh": "Boundary layer height (m)",
+        "t2m": "Temperature (K)",
     }
     list_var = list(var_label_dict.keys())
 
     nrows = len(tks)
     ncols = 3
     figure, ax = plt.subplots(
-        nrows, ncols, figsize=(6 * ncols, 5 * nrows), layout="constrained"
+        nrows, ncols, figsize=(5 * ncols, 4 * nrows), layout="constrained"
     )
     ylabel = "Relative Frequency (%)"
 
+    k = 0
     for i, tk in enumerate(tks):
         t = sd_ed[tk]
         for j, var in enumerate(list_var):
@@ -795,10 +796,11 @@ def plot_weather_params(ds, event="covid"):
                     label=year,
                 )
                 ax[i][j].legend()
-                ax[i][j].set_title(tk)
+                ax[i][j].set_title(f"{INDEX_FIG[k]}) {tk}")
                 ax[i][j].set_xlabel(var_label_dict[var])
                 ax[i][j].set_ylabel(ylabel)
                 ax[i][j].legend(loc="upper left", bbox_to_anchor=(0, 1))
+            k += 1
 
 
 def plot_obs_bau_bubble(org_ds, year):

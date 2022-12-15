@@ -257,7 +257,6 @@ class Dataset(object):
         )
         self.df_2020[S5P_PRED_COL] = s5p_2020_pred
         self.df_2021[S5P_PRED_COL] = s5p_2021_pred
-        self.df_2022[S5P_PRED_COL] = s5p_2022_pred
 
         self.df_2020[[S5P_PRED_COL, S5P_OBS_COL]] = (
             self.df_2020[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
