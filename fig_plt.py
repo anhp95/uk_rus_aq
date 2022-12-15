@@ -411,7 +411,9 @@ def plot_fire_conflict():
         fontsize=18,
     )
     # Plot conflict locations
-    figure_conflict, ax_conflict = plt.subplots(4, 3, figsize=(24, 5 * 4), layout="constrained")
+    figure_conflict, ax_conflict = plt.subplots(
+        4, 3, figsize=(24, 5 * 4), layout="constrained"
+    )
     sd_ed = PERIOD_DICT[2022]
 
     tks = list(sd_ed.keys())
@@ -468,7 +470,7 @@ def plot_fire_conflict():
         ax_conflict[i + 1][j].set_title(f"{tk} - 2022", fontsize=18)
 
         j = j + 1
-    
+
     figure_conflict.suptitle(
         f"Satellite-captured fire spots and Statistic conflict locations from Febuary to July in 2022",
         fontsize=18,
@@ -743,51 +745,59 @@ def plot_wind_speed_direction(ds, year):
     pass
 
 
-def plot_weather_params(ds, y_src=2019, y_tgrt=2020, var="wind"):
-    # war start date before 02/09-24 - after 02/24 - 03/11
-    # s_src_date = "02-09T00:00:00.000000000"
-    # e_src_date = "02-24T00:00:00.000000000"
+def plot_weather_params(ds, event="covid"):
 
     # covid before 03/10-25 after 03/25-04/09
-    s_src_date = "03-25T00:00:00.000000000"
-    e_src_date = "05-11T00:00:00.000000000"
-    title = "Mar-25 to May-11"
+    u10 = ds.era5["u10"]
+    v10 = ds.era5["v10"]
+    ds.era5["wind"] = np.sqrt(u10**2 + v10**2)
 
+    years = [2019, 2020]
+    sd_ed = PERIOD_DICT[2020]
+    list_color = ["#1b9e77", "#d95f02"]
+
+    if event == "war":
+        years = [2019, 2020, 2021, 2022]
+        sd_ed = PERIOD_DICT[2022]
+        list_color = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a"]
+
+    tks = list(sd_ed.keys())
+    var_label_dict = {
+        "wind": "Wind speed (m/s)",
+        "t2m": "Temperature (K)",
+        "blh": "Boundary layer height (m)",
+    }
+    list_var = list(var_label_dict.keys())
+
+    nrows = len(tks)
+    ncols = 3
+    figure, ax = plt.subplots(
+        nrows, ncols, figsize=(6 * ncols, 5 * nrows), layout="constrained"
+    )
     ylabel = "Relative Frequency (%)"
 
-    if var == "wind":
-        xlabel = "Wind speed (m/s)"
-
-        u10 = ds.era5["u10"]
-        v10 = ds.era5["v10"]
-        ds.era5[var] = np.sqrt(u10**2 + v10**2)
-    elif var == "t2m":
-        xlabel = "Temperature (K)"
-    elif var == "blh":
-        xlabel = "Boundary layer height (m)"
-
-    sd = np.datetime64(f"{y_src}-{s_src_date}")
-    ed = np.datetime64(f"{y_src}-{e_src_date}")
-    ts_src = ds.era5.sel(time=slice(sd, ed)).mean("time")[var].values.reshape(-1)
-    w_src = np.ones_like(ts_src) * 100 / ts_src.size
-
-    sd = np.datetime64(f"{y_tgrt}-{s_src_date}")
-    ed = np.datetime64(f"{y_tgrt}-{e_src_date}")
-    t_tgrt = ds.era5.sel(time=slice(sd, ed)).mean("time")[var].values.reshape(-1)
-    w_tgrt = np.ones_like(t_tgrt) * 100 / t_tgrt.size
-
-    print(t_tgrt.shape, w_tgrt.shape)
-    print(ts_src.shape, w_src.shape)
-
-    figure, ax = plt.subplots(figsize=(4, 4))
-    ax.hist(
-        t_tgrt, weights=w_tgrt, ec="b", fc="None", histtype="step", label=y_tgrt
-    )
-    ax.hist(ts_src, weights=w_src, ec="r", fc="None", histtype="step", label=y_src)
-    ax.legend()
-    ax.set_title(title)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    for i, tk in enumerate(tks):
+        t = sd_ed[tk]
+        for j, var in enumerate(list_var):
+            for year, color in zip(years, list_color):
+                sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
+                ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
+                ts_data = (
+                    ds.era5.sel(time=slice(sd, ed)).mean("time")[var].values.reshape(-1)
+                )
+                ws = np.ones_like(ts_data) * 100 / ts_data.size
+                ax[i][j].hist(
+                    ts_data,
+                    weights=ws,
+                    ec=color,
+                    fc="None",
+                    histtype="step",
+                    label=year,
+                )
+                ax[i][j].legend()
+                ax[i][j].set_title(tk)
+                ax[i][j].set_xlabel(var_label_dict[var])
+                ax[i][j].set_ylabel(ylabel)
 
 
 def plot_obs_bau_bubble(org_ds, year):
