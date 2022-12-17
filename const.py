@@ -12,11 +12,11 @@ PERIOD_DICT = {
         "02/16_02/23": {"sd": "16", "sm": "02", "ed": "23", "em": "02"},
         "02/24_02/28": {"sd": "24", "sm": "02", "ed": "28", "em": "02"},
         # "Feb 24-28": {"sd": "01", "sm": "02", "ed": "01", "em": "03"},
-        # "March": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
-        # "April": {"sd": "01", "sm": "04", "ed": "01", "em": "05"},
-        # "May": {"sd": "01", "sm": "05", "ed": "01", "em": "06"},
-        # "June": {"sd": "01", "sm": "06", "ed": "01", "em": "07"},
-        # "July": {"sd": "01", "sm": "07", "ed": "01", "em": "08"},
+        "March": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
+        "April": {"sd": "01", "sm": "04", "ed": "01", "em": "05"},
+        "May": {"sd": "01", "sm": "05", "ed": "01", "em": "06"},
+        "June": {"sd": "01", "sm": "06", "ed": "01", "em": "07"},
+        "July": {"sd": "01", "sm": "07", "ed": "01", "em": "08"},
     },
     2021: {
         "Feb 24-28": {"sd": "01", "sm": "02", "ed": "01", "em": "03"},
@@ -51,6 +51,33 @@ LIST_WAR_CITY = [
     "Kyiv",
 ]
 
+LIST_BOUNDARY_CITY = [
+    "Kovelskyi",
+    "Volodymyr-Volynskyi",
+    "Chervonohradskyi",
+    "Lvivskyi",
+    "Yavorivskyi",
+    "Sambirskyi",
+    "Uzhhorodskyi",
+    "Berehivskyi",
+    "Khustskyi",
+    "Tiachivskyi",
+    "Rakhivskyi",
+    "Verkhovynskyi",
+    "Vyzhnytskyi",
+    "Chernivetskyi",
+    "Dnistrovskyi",
+    "Mohyliv-Podilskyi",
+    "Tulchynskyi",
+    "Podilskyi",
+    "Rozdilnianskyi",
+    "Odeskyi",
+    "Bilhorod-Dnistrovskyi",
+    "Bolhradskyi",
+    "Bilhorod-Dnistrovskyi",
+    "Izmailskyi",
+]
+
 RANDOM_GRID = {
     "min_samples_leaf": [1, 3, 5, 7, 10],
     "n_estimators": [200, 400, 600, 800],
@@ -58,8 +85,8 @@ RANDOM_GRID = {
 
 NO2_UNIT = f"$10^{{{-6}}}$ $mol/m^2$"
 
-S5P_OBS_COL = r"Observed_S5P"
-S5P_PRED_COL = r"Deweathered_S5P"
+S5P_OBS_COL = r"OBS_S5P"
+S5P_PRED_COL = r"BAU_S5P"
 OBS_PRED_CHNAGE = r"Observed_Deweathered_Difference"
 
 ERA5_COLS = ["u10", "v10", "d2m", "t2m", "blh", "z"]
@@ -84,4 +111,15 @@ INDEX_FIG = [
     "o",
     "p",
     "q",
+    "r",
+    "s",
+    "t",
 ]
+
+COAL_COLOR = "#542788"
+BOUNDARY_COLOR = "green"
+CMAP_FIRE = "Reds"
+CMAP_CONFLICT = "OrRd"
+CMAP_NO2 = "RdYlBu_r"
+EDGE_COLOR_CONFLICT = "red"
+EDGE_COLOR_BORDER = "green"

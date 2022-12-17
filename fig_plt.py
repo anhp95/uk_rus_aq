@@ -1,11 +1,18 @@
 #%%
 import xarray as xr
 import geopandas as gpd
+
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+import matplotlib.gridspec as gridspec
+
 import seaborn as sns
 import numpy as np
 import metpy.calc as mpcalc
+import datashader as dsh
 
+from datashader.mpl_ext import dsshow
 from windrose import WindroseAxes
 
 from utils import *
@@ -333,25 +340,24 @@ def plot_pred_true(ds):
 
     plt.colorbar(dsartist)
 
-    axis[0].set_title(
-        "Time series trend of observation NO2 and Machine learning NO2 prediction"
-    )
-    axis[0].set_ylabel("Date")
+    axis[0].set_title(r"a) Time series trend of OBS_NO$_{2}$ and BAU_NO$_{2}$")
+    axis[0].set_xlabel("Date")
     axis[0].set_ylabel(f"$10^{{{-6}}}$ $mol/m^2$")
 
-    axis[1].set_title("NO2 Scatter Plot")
-    axis[1].set_ylabel(f"NO2 S5P Obs $10^{{{-6}}}$ $mol/m^2$")
-    axis[1].set_ylabel(f"NO2 ML predictions $10^{{{-6}}}$ $mol/m^2$")
+    axis[1].set_title(f"b) Scatter Plot of OBS_NO$_{2}$ and BAU_NO$_{2}$")
+    axis[1].set_xlabel(r"OBS_NO$_{2}$ ($10^{{{-6}}}$ $mol/m^2$)")
+    axis[1].set_ylabel(r"BAU_NO$_{2}$ ($10^{{{-6}}}$ $mol/m^2$)")
     axis[1].annotate(
         "$R^2$ = {:.3f}".format(
             r2_score(ds.test_2019[S5P_OBS_COL], ds.test_2019[S5P_PRED_COL])
         ),
-        (10, 300),
+        (10, 750),
     )
-    line = mlines.Line2D([0, 1], [0, 1], color="red")
+    line = mlines.Line2D([0, 1], [0, 1], color="red", label="1:1 line")
     transform = axis[1].transAxes
     line.set_transform(transform)
     axis[1].add_line(line)
+    axis[1].legend()
 
 
 #%%
@@ -405,10 +411,10 @@ def plot_fire_conflict():
                 bbox_to_anchor=(0, 0),
                 loc="lower left",
             )
-            ax_fire[i][j].set_title(f"{tk} - {y}", fontsize=18)
+            ax_fire[i][j].set_title(f"{y}[{tk}]", fontsize=25)
     figure_fire.suptitle(
         f"Satellite-captured fire spots from the end of Febuary to July in 2020, 2021, 2022",
-        fontsize=18,
+        fontsize=28,
     )
     # Plot conflict locations
     figure_conflict, ax_conflict = plt.subplots(
@@ -451,7 +457,7 @@ def plot_fire_conflict():
             bbox_to_anchor=(0, 0),
             loc="lower left",
         )
-        ax_conflict[i][j].set_title(f"{tk} - 2022", fontsize=18)
+        ax_conflict[i][j].set_title(f"2022[{tk}]", fontsize=25)
 
         coal_gdf.plot(
             ax=ax_conflict[i + 1][j], color="green", markersize=20, label=label_coal
@@ -467,13 +473,13 @@ def plot_fire_conflict():
         )
 
         ax_conflict[i + 1][j].legend(bbox_to_anchor=(0, 0), loc="lower left")
-        ax_conflict[i + 1][j].set_title(f"{tk} - 2022", fontsize=18)
+        ax_conflict[i + 1][j].set_title(f"2022[{tk}]", fontsize=25)
 
         j = j + 1
 
     figure_conflict.suptitle(
         f"Satellite-captured fire spots and Statistic conflict locations from Febuary to July in 2022",
-        fontsize=18,
+        fontsize=28,
     )
 
 
@@ -747,7 +753,6 @@ def plot_wind_speed_direction(ds, year):
 
 def plot_weather_params(ds, event="covid"):
 
-    # covid before 03/10-25 after 03/25-04/09
     u10 = ds.era5["u10"]
     v10 = ds.era5["v10"]
     ds.era5["wind"] = np.sqrt(u10**2 + v10**2)
@@ -756,7 +761,7 @@ def plot_weather_params(ds, event="covid"):
     sd_ed = PERIOD_DICT[2020]
     list_color = ["#1b9e77", "#d95f02"]
 
-    if event == "war":
+    if "war" in event:
         years = [2019, 2020, 2021, 2022]
         sd_ed = PERIOD_DICT[2022]
         list_color = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a"]
@@ -767,6 +772,7 @@ def plot_weather_params(ds, event="covid"):
         "blh": "Boundary layer height (m)",
         "t2m": "Temperature (K)",
     }
+    # x_range_dict = {"wind": [2, 4.5], "blh": [400, 900], "t2m": [275, 285]}
     list_var = list(var_label_dict.keys())
 
     nrows = len(tks)
@@ -783,9 +789,11 @@ def plot_weather_params(ds, event="covid"):
             for year, color in zip(years, list_color):
                 sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
                 ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
-                ts_data = (
-                    ds.era5.sel(time=slice(sd, ed)).mean("time")[var].values.reshape(-1)
-                )
+                sel_ds = ds.era5.sel(time=slice(sd, ed)).mean("time")
+                # ts_data = sel_ds[var].values.reshape(-1)
+                # if event == "covid":
+                ts_data = clip_and_flat_major_city(sel_ds, var, event)
+
                 ws = np.ones_like(ts_data) * 100 / ts_data.size
                 ax[i][j].hist(
                     ts_data,
@@ -794,10 +802,12 @@ def plot_weather_params(ds, event="covid"):
                     fc="None",
                     histtype="step",
                     label=year,
+                    linewidth=3 if year == 2022 else 1,
                 )
                 ax[i][j].legend()
-                ax[i][j].set_title(f"{INDEX_FIG[k]}) {tk}")
+                ax[i][j].set_title(f"{INDEX_FIG[k]}) {tk}", fontsize=20)
                 ax[i][j].set_xlabel(var_label_dict[var])
+                # ax[i][j].set_xlim(x_range_dict[var])
                 ax[i][j].set_ylabel(ylabel)
                 ax[i][j].legend(loc="upper left", bbox_to_anchor=(0, 1))
             k += 1
@@ -846,7 +856,6 @@ def plot_obs_bau_bubble(org_ds, year):
         df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
     )
 
-    cmap = "RdYlBu_r"
     nrows = int(len(tks) / 2)
     ncols = 2
     figure, ax = plt.subplots(
@@ -870,7 +879,7 @@ def plot_obs_bau_bubble(org_ds, year):
             hue_norm=(-15, 15),
             size="Population",
             sizes=(150, 500),
-            palette=cmap,
+            palette=CMAP_NO2,
             ax=sub_ax,
         )
 
@@ -881,7 +890,7 @@ def plot_obs_bau_bubble(org_ds, year):
         # )
 
         norm = plt.Normalize(-15, 15)
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm = plt.cm.ScalarMappable(cmap=CMAP_NO2, norm=norm)
         sm.set_array([])
 
         # clb = g.figure.colorbar(
@@ -893,7 +902,7 @@ def plot_obs_bau_bubble(org_ds, year):
         #     label="NO$_{2}$ col. change (%)",
         # )
 
-        g.set(title=rf"{col}")
+        g.set(title=rf"{INDEX_FIG[j]}) {year}_OBS[{col}] - {year}_BAU[{col}]")
 
         h, l = g.get_legend_handles_labels()
         l = [f"{li}M" if li != "Population" else li for li in l]
@@ -920,7 +929,7 @@ def plot_obs_bau_bubble(org_ds, year):
         location="bottom",
         shrink=0.4,
     )
-    plt.suptitle(rf"OBS_BAU_NO$_{2}$_Difference_{year} (Major cities)", fontsize=18)
+    plt.suptitle(rf"OBS_NO$_{2}$ - BAU_NO$_{2}$ difference (Major cities)", fontsize=18)
     return geo_df
 
 
@@ -940,7 +949,6 @@ def plot_obs_bubble(event="war"):
 
     obs_dict_year = {}
 
-    cmap = "RdYlBu_r"
     nrows = int((len(year_srcs) + 1) / 2)
     ncols = 2
 
@@ -953,7 +961,7 @@ def plot_obs_bubble(event="war"):
         i = int(i / 2)
         j = 0 if j > 1 else j
         for tk in tks[:2]:
-            obs_dict_year[f"{year}_{tk}"] = []
+            obs_dict_year[f"{year}[{tk}]"] = []
             t = sd_ed[tk]
             sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
             ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
@@ -966,14 +974,14 @@ def plot_obs_bubble(event="war"):
                     .sel(time=slice(sd, ed))
                     .mean("time")[[S5P_OBS_COL]]
                 )
-                obs_dict_year[f"{year}_{tk}"].append(adm_ds[S5P_OBS_COL].item())
-            bound_lv2[f"{year}_{tk}"] = obs_dict_year[f"{year}_{tk}"]
+                obs_dict_year[f"{year}[{tk}]"].append(adm_ds[S5P_OBS_COL].item())
+            bound_lv2[f"{year}[{tk}]"] = obs_dict_year[f"{year}[{tk}]"]
 
-        col = f"{year} ({tks[1]} - {tks[0]})"
+        col = f"{year}[{tks[1]}] - {year}[{tks[0]}]"
         bound_lv2[col] = (
-            (bound_lv2[f"{year}_{tks[1]}"] - bound_lv2[f"{year}_{tks[0]}"])
+            (bound_lv2[f"{year}[{tks[1]}]"] - bound_lv2[f"{year}[{tks[0]}]"])
             * 100
-            / bound_lv2[f"{year}_{tks[0]}"]
+            / bound_lv2[f"{year}[{tks[0]}]"]
         )
         # Plot
         ax = self_ax[i][j] if nrows > 1 else self_ax[j]
@@ -987,14 +995,14 @@ def plot_obs_bubble(event="war"):
             hue_norm=(-1 * norm_val, norm_val),
             size="Population",
             sizes=(150, 500),
-            palette=cmap,
+            palette=CMAP_NO2,
             ax=ax,
         )
         norm = plt.Normalize(-1 * norm_val, norm_val)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
 
-        g.set(title=rf"{col}")
+        g.set(title=rf"{INDEX_FIG[j]}) {col}")
 
         h, l = g.get_legend_handles_labels()
         l = [f"{li}M" if li != "Population" else li for li in l]
@@ -1021,7 +1029,7 @@ def plot_obs_bubble(event="war"):
         location="bottom",
         shrink=0.4,
     )
-    plt.suptitle(rf"OBS_Before_During_Change Estimates", fontsize=18)
+    plt.suptitle(rf'OBS "before-during" change estimates (Major cities)', fontsize=18)
 
     # inter bf af change
     nrows = len(year_srcs)
@@ -1034,11 +1042,11 @@ def plot_obs_bubble(event="war"):
     for i, year_src in enumerate(year_srcs):
         for j, tk in enumerate(tks[:2]):
 
-            col = f"{year_target}_{tk} - {year_src}_{tk}"
+            col = f"{year_target}[{tk}] - {year_src}[{tk}]"
             bound_lv2[col] = (
-                (bound_lv2[f"{year_target}_{tk}"] - bound_lv2[f"{year_src}_{tk}"])
+                (bound_lv2[f"{year_target}[{tk}]"] - bound_lv2[f"{year_src}[{tk}]"])
                 * 100
-                / bound_lv2[f"{year_src}_{tk}"]
+                / bound_lv2[f"{year_src}[{tk}]"]
             )
             ax = inter_ax[i][j] if nrows > 1 else inter_ax[j]
             bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
@@ -1050,14 +1058,14 @@ def plot_obs_bubble(event="war"):
                 hue_norm=(-1 * norm_val, norm_val),
                 size="Population",
                 sizes=(150, 500),
-                palette=cmap,
+                palette=CMAP_NO2,
                 ax=ax,
             )
             norm = plt.Normalize(-1 * norm_val, norm_val)
-            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm = plt.cm.ScalarMappable(cmap=CMAP_NO2, norm=norm)
             sm.set_array([])
 
-            g.set(title=rf"{col}")
+            g.set(title=rf"{INDEX_FIG[j]}) {col}")
 
             h, l = g.get_legend_handles_labels()
             l = [f"{li}M" if li != "Population" else li for li in l]
@@ -1082,17 +1090,29 @@ def plot_obs_bubble(event="war"):
         location="bottom",
         shrink=0.4,
     )
-    plt.suptitle(rf"OBS_Year_to_Year_Change Estimates", fontsize=18)
+    plt.suptitle(rf'OBS "year-to-year" change estimates (Major cities)', fontsize=18)
 
     return bound_lv2
 
 
 def plot_obs_change_adm2():
-    cmap = "RdYlBu_r"
-    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
+
     adm_col = "ADM2_EN"
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     coal_gdf = gpd.read_file(UK_COAL_SHP)
+    boundary = get_boundary_cities()
     org_ds = prep_s5p_ds()
+
+    lg_conflict = [
+        mpatches.Patch(
+            facecolor="w", edgecolor=EDGE_COLOR_CONFLICT, label="Reported Conflict"
+        )
+    ]
+    lg_border = [
+        mpatches.Patch(facecolor="w", edgecolor=EDGE_COLOR_BORDER, label="Border City")
+    ]
+
+    conflict_ds = get_monthly_conflict()
 
     year_target = 2022
     sd_ed = PERIOD_DICT[year_target]
@@ -1101,7 +1121,6 @@ def plot_obs_change_adm2():
     tks = list(sd_ed.keys())
 
     pixel_change_dict = {}
-
     for year in year_srcs + [year_target]:
 
         for tk in tks:
@@ -1111,6 +1130,7 @@ def plot_obs_change_adm2():
             pixel_change_dict[f"{year}_{tk}"] = org_ds.sel(time=slice(sd, ed)).mean(
                 "time"
             )[[S5P_OBS_COL]]
+
         pixel_change_dict[f"self_{year}"] = (
             (
                 pixel_change_dict[f"{year}_{tks[1]}"]
@@ -1120,6 +1140,7 @@ def plot_obs_change_adm2():
             / pixel_change_dict[f"{year}_{tks[0]}"]
         )
         self_year_change = []
+
         for adm2 in bound_lv2[adm_col].values:
             geometry = bound_lv2.loc[bound_lv2[adm_col] == adm2].geometry
             self_year_change.append(
@@ -1167,6 +1188,7 @@ def plot_obs_change_adm2():
 
     # self refugee change
     j = 0
+    k = 0
     for i, year in enumerate(year_srcs + [year_target]):
         i = int(i / 2)
         j = 0 if j > 1 else j
@@ -1174,19 +1196,44 @@ def plot_obs_change_adm2():
         bound_lv2.plot(
             column=col,
             ax=self_ref_ax[i][j],
-            cmap=cmap,
+            cmap=CMAP_NO2,
             vmin=-70,
             vmax=70,
             legend=False,
         )
-        self_ref_ax[i][j].set_title(rf"{year} ({tks[1]} - {tks[0]})", fontsize=14)
+        self_ref_ax[i][j].set_title(
+            rf"{INDEX_FIG[k]}) {year}[{tks[1]}] - {year}[{tks[0]}]", fontsize=14
+        )
         bound_lv2.plot(
             ax=self_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
         )
-        # self_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+        self_ref_conflict = conflict_ds.loc[conflict_ds[f"conflict_{tks[1]}"] > 2]
+        self_ref_conflict.plot(
+            ax=self_ref_ax[i][j],
+            facecolor="None",
+            edgecolor=EDGE_COLOR_CONFLICT,
+            lw=1,
+        )
+        coal_gdf.plot(
+            ax=self_ref_ax[i][j],
+            color=COAL_COLOR,
+            markersize=20,
+            label="CPP",
+        )
+        boundary.plot(
+            ax=self_ref_ax[i][j],
+            facecolor="None",
+            edgecolor=EDGE_COLOR_BORDER,
+            lw=1,
+        )
+        handles, _ = self_ref_ax[i][j].get_legend_handles_labels()
+        self_ref_ax[i][j].legend(
+            handles=[*lg_conflict, *lg_border, *handles], loc="lower left"
+        )
         j += 1
+        k += 1
     norm = plt.Normalize(-70, 70)
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm = plt.cm.ScalarMappable(cmap=CMAP_NO2, norm=norm)
     sm.set_array([])
     self_ref_fig.colorbar(
         sm,
@@ -1199,7 +1246,9 @@ def plot_obs_change_adm2():
         location="bottom",
         shrink=0.4,
     )
-    self_ref_fig.suptitle(rf'"OBS_Before_During_Change" Estimates', fontsize=18)
+    self_ref_fig.suptitle(
+        rf'OBS "before-during" change estimates (City level)', fontsize=18
+    )
     # inter refugee change
     for i, tk in enumerate(tks[:2]):
         for j, year in enumerate(year_srcs):
@@ -1207,21 +1256,46 @@ def plot_obs_change_adm2():
             bound_lv2.plot(
                 column=col,
                 ax=inter_ref_ax[i][j],
-                cmap=cmap,
+                cmap=CMAP_NO2,
                 vmin=-70,
                 vmax=70,
                 legend=False,
             )
             inter_ref_ax[i][j].set_title(
-                f"{year_target}_{tk} - {year}_{tk}", fontsize=14
+                f"{year_target}[{tk}] - {year}[{tk}]", fontsize=16
             )
             bound_lv2.plot(
                 ax=inter_ref_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
             )
-            # inter_ref_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+            if i > 0:
+                inter_ref_conflict = conflict_ds.loc[
+                    conflict_ds[f"conflict_{tks[1]}"] > 2
+                ]
+                inter_ref_conflict.plot(
+                    ax=inter_ref_ax[i][j],
+                    facecolor="None",
+                    edgecolor=EDGE_COLOR_CONFLICT,
+                    lw=1,
+                )
+                coal_gdf.plot(
+                    ax=inter_ref_ax[i][j],
+                    color=COAL_COLOR,
+                    markersize=20,
+                    label="CPP",
+                )
+                boundary.plot(
+                    ax=inter_ref_ax[i][j],
+                    facecolor="None",
+                    edgecolor=EDGE_COLOR_BORDER,
+                    lw=1,
+                )
+                handles, _ = inter_ref_ax[i][j].get_legend_handles_labels()
+                inter_ref_ax[i][j].legend(
+                    handles=[*lg_conflict, *lg_border, *handles], loc="lower left"
+                )
 
     norm = plt.Normalize(-70, 70)
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm = plt.cm.ScalarMappable(cmap=CMAP_NO2, norm=norm)
     sm.set_array([])
     inter_ref_fig.colorbar(
         sm,
@@ -1234,7 +1308,9 @@ def plot_obs_change_adm2():
         location="bottom",
         shrink=0.4,
     )
-    inter_ref_fig.suptitle(rf'"OBS_Year_to_Year_Change" Estimates', fontsize=18)
+    inter_ref_fig.suptitle(
+        rf'OBS "year-to-year" change estimates (City level)', fontsize=20
+    )
 
     # inter war change
     for i, tk in enumerate(tks[2:]):
@@ -1243,21 +1319,43 @@ def plot_obs_change_adm2():
             bound_lv2.plot(
                 column=col,
                 ax=inter_war_ax[i][j],
-                cmap=cmap,
+                cmap=CMAP_NO2,
                 vmin=-30,
                 vmax=30,
                 legend=False,
             )
             inter_war_ax[i][j].set_title(
-                f"{year_target}_{tk} - {year}_{tk}", fontsize=14
+                f"{year_target}[{tk}] - {year}[{tk}]", fontsize=18
             )
             bound_lv2.plot(
                 ax=inter_war_ax[i][j], facecolor="None", edgecolor="black", lw=0.2
             )
-            # inter_war_ax[i][j].legend(loc="upper center", bbox_to_anchor=(0.5, -0.01))
+            inter_war_conflict = conflict_ds.loc[conflict_ds[f"conflict_{tk}"] > 10]
+            inter_war_conflict.plot(
+                ax=inter_war_ax[i][j],
+                facecolor="None",
+                edgecolor=EDGE_COLOR_CONFLICT,
+                lw=1,
+            )
+            coal_gdf.plot(
+                ax=inter_war_ax[i][j],
+                color=COAL_COLOR,
+                markersize=20,
+                label="CPP",
+            )
+            boundary.plot(
+                ax=inter_war_ax[i][j],
+                facecolor="None",
+                edgecolor=EDGE_COLOR_BORDER,
+                lw=1,
+            )
+            handles, _ = inter_war_ax[i][j].get_legend_handles_labels()
+            inter_war_ax[i][j].legend(
+                handles=[*lg_conflict, *lg_border, *handles], loc="lower left"
+            )
 
     norm = plt.Normalize(-30, 30)
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm = plt.cm.ScalarMappable(cmap=CMAP_NO2, norm=norm)
     sm.set_array([])
     inter_war_fig.colorbar(
         sm,
@@ -1270,15 +1368,14 @@ def plot_obs_change_adm2():
         location="bottom",
         shrink=0.4,
     )
-    inter_war_fig.suptitle(rf'"OBS_Year_to_Year_Change" Estimates', fontsize=18)
+    inter_war_fig.suptitle(
+        rf'OBS "year-to-year" change estimates (City level)', fontsize=22
+    )
 
     return bound_lv2
 
 
 def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
-    cmap_conflict = "OrRd"
-    cmap_fire = "Reds"
-    cmap_no2 = "RdYlBu_r"
 
     # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
     ds = prep_ds(org_ds, year)
@@ -1354,7 +1451,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
             column=f"conflict_{t}",
             ax=ax[0],
             legend=True,
-            cmap=cmap_conflict,
+            cmap=CMAP_CONFLICT,
             legend_kwds={
                 "label": "Number of conflict spots",
                 "orientation": "horizontal",
@@ -1367,7 +1464,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
             column=f"fire_{t}",
             ax=ax[1],
             legend=True,
-            cmap=cmap_fire,
+            cmap=CMAP_FIRE,
             legend_kwds={
                 "label": "Number of fire spots",
                 "orientation": "horizontal",
@@ -1375,18 +1472,18 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 "fraction": 0.8,
             },
         )
-        ax[0].set_title(f"Conflict Locations", fontsize=14)
-        ax[1].set_title(f"Fire Locations", fontsize=14)
+        ax[0].set_title(f"a) Conflict locations", fontsize=14)
+        ax[1].set_title(f"b) Fire spots", fontsize=14)
         for i in range(len(ax)):
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-        plt.suptitle(rf"{year} ({t})", fontsize=18)
+        plt.suptitle(rf"Conflict locations and Fire spots in {year}[{t}]", fontsize=18)
     elif mode == "2_no2_bau":
         for i in [0, 1]:
             bound_lv2.plot(
                 column=f"war_{tks[i]}",
                 ax=ax[i],
                 legend=True,
-                cmap=cmap_no2,
+                cmap=CMAP_NO2,
                 vmin=-20,
                 vmax=20,
                 legend_kwds={
@@ -1396,9 +1493,14 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                     "fraction": 0.8,
                 },
             )
-            ax[i].set_title(f"{tks[i]}", fontsize=14)
+            ax[i].set_title(
+                f"{INDEX_FIG[i]}) {year}_OBS[{tks[i]}] - {year}_BAU[{tks[i]}]",
+                fontsize=14,
+            )
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-        plt.suptitle(rf"OBS_BAU_NO$_{2}$_Difference (City level)", fontsize=18)
+        plt.suptitle(
+            rf"OBS_NO$_{2}$ - BAU_NO$_{2}$ difference (City level)", fontsize=18
+        )
     elif mode == "3_cf_no2_bau":
         for i, tk in enumerate(tks[2:]):
             legend = False if i < 4 else True
@@ -1406,7 +1508,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 column=f"war_{tk}",
                 ax=ax[i][0],
                 legend=legend,
-                cmap=cmap_no2,
+                cmap=CMAP_NO2,
                 vmin=-20,
                 vmax=20,
                 legend_kwds={
@@ -1420,7 +1522,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 column=f"conflict_{tk}",
                 ax=ax[i][1],
                 legend=legend,
-                cmap=cmap_conflict,
+                cmap=CMAP_CONFLICT,
                 vmin=0,
                 vmax=300,
                 legend_kwds={
@@ -1435,7 +1537,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 column=f"fire_{tk}",
                 ax=ax[i][2],
                 legend=legend,
-                cmap=cmap_fire,
+                cmap=CMAP_FIRE,
                 vmin=0,
                 vmax=600,
                 legend_kwds={
@@ -1449,12 +1551,110 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
             for j in range(len(ax[i])):
                 bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
 
-            ax[i][0].set_title(rf"OBS_BAU_NO$_{2}$ ({tk})", fontsize=14)
-            ax[i][1].set_title(f"Conflict Locations ({tk})", fontsize=14)
-            ax[i][2].set_title(f"Fire Locations ({tk})", fontsize=14)
+            ax[i][0].set_title(rf"{year}_OBS[{tk}] - {year}_BAU[{tk}]", fontsize=14)
+            ax[i][1].set_title(f"Conflict Locations {year}[{tk}]", fontsize=14)
+            ax[i][2].set_title(f"Fire Locations {year}[{tk}]", fontsize=14)
         plt.suptitle(
-            rf"OBS_BAU NO$_{2}$_Difference , Conflict and Fire Locations from 2022/03 to 2022/07 (City level)",
+            rf"OBS_NO$_{2}$ -  BAU_NO$_{2}$ difference , Conflict locations, and Fire spots 2022[Mar - Jul] (City level)",
             fontsize=18,
         )
 
     return bound_lv2
+
+
+def plot_conflict_refugee_adm2():
+
+    conflict_df = get_monthly_conflict()
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+    boundary = get_boundary_cities()
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
+
+    sd_ed = PERIOD_DICT[2022]
+    tks = list(sd_ed.keys())
+
+    lg = [mpatches.Patch(facecolor="w", edgecolor="green", label="Boder City")]
+
+    # refugee
+    ref_figure, ref_ax = plt.subplots(1, 1, figsize=(6, 5), layout="constrained")
+
+    conflict_df.plot(
+        column=f"conflict_{tks[1]}",
+        ax=ref_ax,
+        legend=True,
+        cmap=CMAP_CONFLICT,
+        legend_kwds={
+            "label": "Number of the conflict spots",
+            "orientation": "vertical",
+            "extend": "both",
+            "shrink": 0.5,
+        },
+    )
+
+    boundary.plot(ax=ref_ax, facecolor="None", edgecolor=BOUNDARY_COLOR, lw=1)
+    coal_gdf.plot(
+        ax=ref_ax,
+        color=COAL_COLOR,
+        markersize=20,
+        label="CPP",
+    )
+    bound_lv2.plot(ax=ref_ax, facecolor="None", edgecolor="black", lw=0.2)
+    handles, _ = ref_ax.get_legend_handles_labels()
+    ref_ax.legend(handles=[*lg, *handles], loc="lower left")
+    ref_ax.set_title(f"2022[{tks[1]}]")
+
+
+def plot_conflict_war_adm2():
+    conflict_df = get_monthly_conflict()
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
+    boundary = get_boundary_cities()
+    bound_lv2 = gpd.read_file(UK_SHP_ADM2)
+
+    sd_ed = PERIOD_DICT[2022]
+    tks = list(sd_ed.keys())[2:]
+
+    gs = gridspec.GridSpec(2, 6)
+    fig = plt.figure(figsize=(18, 10), constrained_layout=True)
+
+    lg = [mpatches.Patch(facecolor="w", edgecolor="green", label="Border City")]
+
+    axs = []
+    for i in range(0, 5):
+        if i < 3:
+            ax = fig.add_subplot(gs[0, i * 2 : i * 2 + 2])
+        elif i > 2:
+            ax = fig.add_subplot(gs[1, (i - 2) * 2 - 1 : (i - 2) * 2 + 1])
+        conflict_df.plot(
+            column=f"conflict_{tks[i]}",
+            ax=ax,
+            vmin=0,
+            vmax=300,
+            legend=False,
+            cmap=CMAP_CONFLICT,
+        )
+
+        boundary.plot(ax=ax, facecolor="None", edgecolor=BOUNDARY_COLOR, lw=1)
+        coal_gdf.plot(
+            ax=ax,
+            color=COAL_COLOR,
+            markersize=20,
+            label="CPP",
+        )
+        bound_lv2.plot(ax=ax, facecolor="None", edgecolor="black", lw=0.2)
+        handles, _ = ax.get_legend_handles_labels()
+        ax.legend(handles=[*lg, *handles], loc="lower left")
+        ax.set_title(f"2022[{tks[i]}]")
+        axs += [ax]
+    norm = plt.Normalize(0, 300)
+    sm = plt.cm.ScalarMappable(cmap=CMAP_CONFLICT, norm=norm)
+    sm.set_array([])
+    fig.colorbar(
+        sm,
+        ax=axs,
+        # ax=ax[:,1],
+        # fraction=0.47,
+        orientation="horizontal",
+        extend="both",
+        label="Number of the conflict spots",
+        location="bottom",
+        shrink=0.4,
+    )
