@@ -1,3 +1,5 @@
+import matplotlib.patches as mpatches
+
 UK_BOUND = {
     "min_lat": 44.386411,
     "max_lat": 52.379291,
@@ -123,3 +125,12 @@ CMAP_CONFLICT = "OrRd"
 CMAP_NO2 = "RdYlBu_r"
 EDGE_COLOR_CONFLICT = "red"
 EDGE_COLOR_BORDER = "green"
+
+LG_CONFLICT = [
+        mpatches.Patch(
+            facecolor="w", edgecolor=EDGE_COLOR_CONFLICT, label="Reported Conflict"
+        )
+    ]
+LG_BORDER = [
+    mpatches.Patch(facecolor="w", edgecolor=EDGE_COLOR_BORDER, label="Border City")
+]

@@ -115,58 +115,38 @@ def get_nday_mean(df, nday=3):
     return df.set_index("time")
 
 
-def clip_and_flat_major_city(ds, var, event="covid"):
+def clip_and_flat_event_city(ds, var, tk, border_df, conflict_df, event="covid"):
+
+    crs = border_df.crs
+    adm2_col = "ADM2_EN"
+
     flat_array = np.array([])
+
     if event == "covid":
 
-        bound_lv2, crs = get_bound_pop_lv2()
-        col = "ADM2_EN"
+        bound_lv2, _ = get_bound_pop_lv2()
+        event_bound = bound_lv2
+    elif "border" in event:
+        event_bound = border_df
+    elif event == "war1-conflict":
+        tk1 = "02/24_02/28"
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk1}"] > 2]
+    elif event == "war2-conflict":
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 10]
 
-        for adm2 in bound_lv2[col].values:
-            geometry = bound_lv2.loc[bound_lv2[col] == adm2].geometry
-            clip_arr = ds.rio.clip(geometry, crs)[var].values.reshape(-1)
-            flat_array = np.concatenate((flat_array, clip_arr), axis=None)
-
-    elif "war" in event:
-        bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-        col = "ADM1_EN"
-
-        if event == "war1":
-            list_adm1 = [
-                "Donetska",
-                "Kyiv",
-                "Volynska",
-                "Lvivska",
-                "Zakarpatska",
-                "Ivano-Frankivska",
-                "Chernivetska",
-                "Kharkivska",
-                "Zaporizka",
-                "Khersonska",
-                "Dnipropetrovska",
-            ]
-        elif event == "war2":
-            list_adm1 = [
-                "Donetska",
-                "Kyiv",
-                "Volynska",
-                "Lvivska",
-                "Zakarpatska",
-                "Ivano-Frankivska",
-                "Chernivetska",
-            ]
-
-        for adm1 in list_adm1:
-            geometry = bound_lv1.loc[bound_lv1[col] == adm1].geometry
-            clip_arr = ds.rio.clip(geometry, bound_lv1.crs)[var].values.reshape(-1)
-            flat_array = np.concatenate((flat_array, clip_arr), axis=None)
+    for adm2 in event_bound[adm2_col].values:
+        geometry = event_bound.loc[event_bound[adm2_col] == adm2].geometry
+        clip_arr = ds.rio.clip(geometry, crs)[var].values.reshape(-1)
+        flat_array = np.concatenate((flat_array, clip_arr), axis=None)
 
     return flat_array
+
 
 def get_boundary_cities():
     bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     boundary = bound_lv2.loc[bound_lv2["ADM2_EN"].isin(LIST_BOUNDARY_CITY)]
     return boundary
+
 
 def get_monthly_conflict():
     conflict_ds = prep_conflict_df()

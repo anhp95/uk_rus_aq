@@ -753,20 +753,30 @@ def plot_wind_speed_direction(ds, year):
 
 def plot_weather_params(ds, event="covid"):
 
+    border_df = get_boundary_cities()
+    conflict_df = get_monthly_conflict()
+
     u10 = ds.era5["u10"]
     v10 = ds.era5["v10"]
     ds.era5["wind"] = np.sqrt(u10**2 + v10**2)
 
-    years = [2019, 2020]
-    sd_ed = PERIOD_DICT[2020]
-    list_color = ["#1b9e77", "#d95f02"]
+    year_target = 2022
+    list_color = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a"]
 
-    if "war" in event:
-        years = [2019, 2020, 2021, 2022]
-        sd_ed = PERIOD_DICT[2022]
-        list_color = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a"]
+    if event == "covid":
+        year_target = 2020
+        list_color = ["#1b9e77", "#d95f02"]
+
+    years = [i for i in range(2019, year_target + 1)]
+    sd_ed = PERIOD_DICT[year_target]
 
     tks = list(sd_ed.keys())
+
+    if "war1" in event:
+        tks = tks[:2]
+    elif "war2" in event:
+        tks = tks[2:]
+
     var_label_dict = {
         "wind": "Wind speed (m/s)",
         "blh": "Boundary layer height (m)",
@@ -792,7 +802,9 @@ def plot_weather_params(ds, event="covid"):
                 sel_ds = ds.era5.sel(time=slice(sd, ed)).mean("time")
                 # ts_data = sel_ds[var].values.reshape(-1)
                 # if event == "covid":
-                ts_data = clip_and_flat_major_city(sel_ds, var, event)
+                ts_data = clip_and_flat_event_city(
+                    sel_ds, var, tk, border_df, conflict_df, event
+                )
 
                 ws = np.ones_like(ts_data) * 100 / ts_data.size
                 ax[i][j].hist(
@@ -1103,15 +1115,6 @@ def plot_obs_change_adm2():
     boundary = get_boundary_cities()
     org_ds = prep_s5p_ds()
 
-    lg_conflict = [
-        mpatches.Patch(
-            facecolor="w", edgecolor=EDGE_COLOR_CONFLICT, label="Reported Conflict"
-        )
-    ]
-    lg_border = [
-        mpatches.Patch(facecolor="w", edgecolor=EDGE_COLOR_BORDER, label="Border City")
-    ]
-
     conflict_ds = get_monthly_conflict()
 
     year_target = 2022
@@ -1228,7 +1231,7 @@ def plot_obs_change_adm2():
         )
         handles, _ = self_ref_ax[i][j].get_legend_handles_labels()
         self_ref_ax[i][j].legend(
-            handles=[*lg_conflict, *lg_border, *handles], loc="lower left"
+            handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left"
         )
         j += 1
         k += 1
@@ -1291,7 +1294,7 @@ def plot_obs_change_adm2():
                 )
                 handles, _ = inter_ref_ax[i][j].get_legend_handles_labels()
                 inter_ref_ax[i][j].legend(
-                    handles=[*lg_conflict, *lg_border, *handles], loc="lower left"
+                    handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left"
                 )
 
     norm = plt.Normalize(-70, 70)
@@ -1351,7 +1354,7 @@ def plot_obs_change_adm2():
             )
             handles, _ = inter_war_ax[i][j].get_legend_handles_labels()
             inter_war_ax[i][j].legend(
-                handles=[*lg_conflict, *lg_border, *handles], loc="lower left"
+                handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left"
             )
 
     norm = plt.Normalize(-30, 30)
@@ -1376,7 +1379,9 @@ def plot_obs_change_adm2():
 
 
 def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
-
+    border_df = get_boundary_cities()
+    conflict_df = get_monthly_conflict()
+    coal_gdf = gpd.read_file(UK_COAL_SHP)
     # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
     ds = prep_ds(org_ds, year)
 
@@ -1490,14 +1495,29 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
                     "extend": "both",
-                    "fraction": 0.8,
+                    "shrink": 0.8,
                 },
             )
             ax[i].set_title(
                 f"{INDEX_FIG[i]}) {year}_OBS[{tks[i]}] - {year}_BAU[{tks[i]}]",
                 fontsize=14,
             )
+            coal_gdf.plot(
+                ax=ax[i],
+                color=COAL_COLOR,
+                markersize=20,
+                label="CPP",
+            )
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tks[i]}"] > 2]
+        event_bound.plot(
+            ax=ax[i], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
+        )
+        border_df.plot(ax=ax[i], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
+        handles, _ = ax[i].get_legend_handles_labels()
+        ax[i].legend(
+            handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left"
+        )
         plt.suptitle(
             rf"OBS_NO$_{2}$ - BAU_NO$_{2}$ difference (City level)", fontsize=18
         )
@@ -1515,7 +1535,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
                     "extend": "both",
-                    "fraction": 0.8,
+                    "shrink": 0.8,
                 },
             )
             bound_lv2.plot(
@@ -1529,7 +1549,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                     "label": "Number of conflict spots",
                     "orientation": "horizontal",
                     "extend": "both",
-                    "fraction": 0.8,
+                    "shrink": 0.8,
                 },
             )
 
@@ -1544,12 +1564,30 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                     "label": "Number of fire spots",
                     "orientation": "horizontal",
                     "extend": "both",
-                    "fraction": 0.8,
+                    "shrink": 0.8,
                 },
             )
 
+            event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 10]
+            event_bound.plot(
+                ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
+            )
+            border_df.plot(
+                ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1
+            )
+
             for j in range(len(ax[i])):
+                coal_gdf.plot(
+                    ax=ax[i][j],
+                    color=COAL_COLOR,
+                    markersize=20,
+                    label="CPP",
+                )
                 bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
+                ax[i][j].legend(loc="lower left")
+            
+            handles, _ = ax[i][0].get_legend_handles_labels()
+            ax[i][0].legend(handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left")
 
             ax[i][0].set_title(rf"{year}_OBS[{tk}] - {year}_BAU[{tk}]", fontsize=14)
             ax[i][1].set_title(f"Conflict Locations {year}[{tk}]", fontsize=14)
