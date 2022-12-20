@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
+import matplotlib.cm as cm
 
 import seaborn as sns
 import numpy as np
@@ -1720,15 +1721,15 @@ def plot_wind_rose(ds, event="border"):
     u10_var = "u10"
     v10_var = "v10"
     year = 2022
-    bins = [1,2,3]
+    bins = [i for i in range(0,7)]
     # tk = "July"
 
     u10 = ds.era5[u10_var]
     v10 = ds.era5[v10_var]
     ds.era5[wind_var] = np.sqrt(u10**2 + v10**2)
     sd_ed = PERIOD_DICT[2022]
-    tks = list(sd_ed.keys())[2:]
-    fig = plt.figure(constrained_layout=True)
+    tks = list(sd_ed.keys())[1:]
+    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
     fig.suptitle("Wind speed and direction in 2022")
     for i, tk in enumerate(tks):
         t = sd_ed[tk]
@@ -1736,7 +1737,8 @@ def plot_wind_rose(ds, event="border"):
         ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
         july_wind_ds = ds.era5.sel(time=slice(sd, ed))[[wind_var, u10_var, v10_var]]
 
-        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 70]
+        threshold_point = 2 if i == 0 else 70
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > threshold_point]
 
         if event == "border":
             event_bound = border_df
@@ -1769,9 +1771,10 @@ def plot_wind_rose(ds, event="border"):
         wind_d = mpcalc.wind_direction(u10_flat, v10_flat)
         ax = fig.add_subplot(2, 3, i+1, projection="windrose")
         # ax_w = WindroseAxes.from_ax(ax[i])
-        ax.contourf(wind_d.magnitude, wind_flat, bins=bins, lw=3)
-        ax.contour(wind_d.magnitude, wind_flat, bins=bins, colors="black")
+        ax.contourf(wind_d.magnitude, wind_flat, normed=True, bins=bins, lw=3, cmap=cm.Spectral_r)
+        ax.contour(wind_d.magnitude, wind_flat, normed=True, bins=bins, colors="black")
+        # ax.bar(wind_d.magnitude, wind_flat, bins=bins, normed=True, opening=0.8, edgecolor='white')
+        ax.set_legend(title="Windspeed: m/s")
         ax.set_title(f"{tk}")
-    ax.legend(bbox_to_anchor=(1.2 , -0.1))
 
     return wind_d, wind_flat

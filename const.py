@@ -125,6 +125,7 @@ CMAP_CONFLICT = "OrRd"
 CMAP_NO2 = "RdYlBu_r"
 EDGE_COLOR_CONFLICT = "red"
 EDGE_COLOR_BORDER = "green"
+CMAP_WIND = "Spectral_r"
 
 LG_CONFLICT = [
         mpatches.Patch(
