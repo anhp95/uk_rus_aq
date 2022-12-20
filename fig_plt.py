@@ -12,6 +12,7 @@ import numpy as np
 import metpy.calc as mpcalc
 import datashader as dsh
 
+from metpy.units import units
 from datashader.mpl_ext import dsshow
 from windrose import WindroseAxes
 
@@ -1708,3 +1709,69 @@ def plot_conflict_war_adm2():
         location="bottom",
         shrink=0.4,
     )
+
+
+def plot_wind_rose(ds, event="border"):
+
+    border_df = get_boundary_cities()
+    conflict_df = get_monthly_conflict()
+    adm2_col = "ADM2_EN"
+    wind_var = "wind"
+    u10_var = "u10"
+    v10_var = "v10"
+    year = 2022
+    bins = [1,2,3]
+    # tk = "July"
+
+    u10 = ds.era5[u10_var]
+    v10 = ds.era5[v10_var]
+    ds.era5[wind_var] = np.sqrt(u10**2 + v10**2)
+    sd_ed = PERIOD_DICT[2022]
+    tks = list(sd_ed.keys())[2:]
+    fig = plt.figure(constrained_layout=True)
+    fig.suptitle("Wind speed and direction in 2022")
+    for i, tk in enumerate(tks):
+        t = sd_ed[tk]
+        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
+        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
+        july_wind_ds = ds.era5.sel(time=slice(sd, ed))[[wind_var, u10_var, v10_var]]
+
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 70]
+
+        if event == "border":
+            event_bound = border_df
+
+        wind_flat = []
+        u10_flat = []
+        v10_flat = []
+        for adm2 in event_bound[adm2_col].values:
+            geometry = event_bound.loc[event_bound[adm2_col] == adm2].geometry
+
+            clip_ds = july_wind_ds.rio.clip(geometry, event_bound.crs)
+
+            wind_flat = np.concatenate(
+                (wind_flat, clip_ds[wind_var].values.reshape(-1)), axis=None
+            )
+            u10_flat = np.concatenate(
+                (u10_flat, clip_ds[u10_var].values.reshape(-1)), axis=None
+            )
+            v10_flat = np.concatenate(
+                (v10_flat, clip_ds[v10_var].values.reshape(-1)), axis=None
+            )
+
+        wind_flat = wind_flat[~np.isnan(wind_flat)]
+        u10_flat = u10_flat[~np.isnan(u10_flat)]
+        v10_flat = v10_flat[~np.isnan(v10_flat)]
+
+        u10_flat = units.Quantity(u10_flat, "m/s")
+        v10_flat = units.Quantity(v10_flat, "m/s")
+
+        wind_d = mpcalc.wind_direction(u10_flat, v10_flat)
+        ax = fig.add_subplot(2, 3, i+1, projection="windrose")
+        # ax_w = WindroseAxes.from_ax(ax[i])
+        ax.contourf(wind_d.magnitude, wind_flat, bins=bins, lw=3)
+        ax.contour(wind_d.magnitude, wind_flat, bins=bins, colors="black")
+        ax.set_title(f"{tk}")
+    ax.legend(bbox_to_anchor=(1.2 , -0.1))
+
+    return wind_d, wind_flat
