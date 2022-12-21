@@ -813,29 +813,28 @@ def plot_weather_params(ds, event="covid"):
             for year, color in zip(years, list_color):
                 sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
                 ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
-                sel_ds = ds.era5.sel(time=slice(sd, ed)).mean("time")
+                # sel_ds = ds.era5.sel(time=slice(sd, ed)).mean("time")
+                sel_ds = ds.era5.sel(time=slice(sd, ed))
                 # ts_data = sel_ds[var].values.reshape(-1)
                 # if event == "covid":
-                ts_data = clip_and_flat_event_city(
-                    sel_ds, var, tk, border_df, conflict_df, event
-                )
+                ts_data = clip_and_flat_event_city(sel_ds, var, tk, conflict_df, border_df, event)
 
                 ws = np.ones_like(ts_data) * 100 / ts_data.size
                 ax[i][j].hist(
                     ts_data,
-                    # weights=ws,
+                    weights=ws,
                     ec=color,
                     fc="None",
                     histtype="step",
-                    label=f"{year} N={len(ts_data)}",
-                    linewidth=3 if year == 2022 else 1,
+                    label=f"{year}",
+                    linewidth=3 if year == 2022 or year == 2019 else 1,
                 )
                 ax[i][j].legend()
                 ax[i][j].set_title(f"{INDEX_FIG[k]}) {tk}", fontsize=20)
                 ax[i][j].set_xlabel(var_label_dict[var])
                 # ax[i][j].set_xlim(x_range_dict[var])
                 ax[i][j].set_ylabel(ylabel)
-                ax[i][j].legend(loc="upper left", bbox_to_anchor=(0, 1))
+                ax[i][j].legend(loc="upper right")
             k += 1
 
 
@@ -1721,7 +1720,7 @@ def plot_wind_rose(ds, event="border"):
     u10_var = "u10"
     v10_var = "v10"
     year = 2022
-    bins = [i for i in range(0,7)]
+    bins = [i for i in range(0, 7)]
     # tk = "July"
 
     u10 = ds.era5[u10_var]
@@ -1769,9 +1768,16 @@ def plot_wind_rose(ds, event="border"):
         v10_flat = units.Quantity(v10_flat, "m/s")
 
         wind_d = mpcalc.wind_direction(u10_flat, v10_flat)
-        ax = fig.add_subplot(2, 3, i+1, projection="windrose")
+        ax = fig.add_subplot(2, 3, i + 1, projection="windrose")
         # ax_w = WindroseAxes.from_ax(ax[i])
-        ax.contourf(wind_d.magnitude, wind_flat, normed=True, bins=bins, lw=3, cmap=cm.Spectral_r)
+        ax.contourf(
+            wind_d.magnitude,
+            wind_flat,
+            normed=True,
+            bins=bins,
+            lw=3,
+            cmap=cm.Spectral_r,
+        )
         ax.contour(wind_d.magnitude, wind_flat, normed=True, bins=bins, colors="black")
         # ax.bar(wind_d.magnitude, wind_flat, bins=bins, normed=True, opening=0.8, edgecolor='white')
         ax.set_legend(title="Windspeed: m/s")

@@ -115,29 +115,40 @@ def get_nday_mean(df, nday=3):
     return df.set_index("time")
 
 
-def clip_and_flat_event_city(ds, var, tk, border_df, conflict_df, event="covid"):
+def clip_and_flat_event_city(ds, var, tk, conflict_df, border_df, event="covid"):
 
-    crs = border_df.crs
-    adm2_col = "ADM2_EN"
+    # crs = border_df.crs
 
     flat_array = np.array([])
+    bound = conflict_df
+    # bound = gpd.read_file(UK_SHP_ADM1)
+    # list_city = ["Donetska", "Kharkivska", "Zaporizka"]
+    adm_col = "ADM2_EN"
 
     if event == "covid":
 
         bound_lv2, _ = get_bound_pop_lv2()
-        event_bound = bound_lv2
-    elif "border" in event:
-        event_bound = border_df
-    elif event == "war1-conflict":
+        list_city = bound_lv2[adm_col].values
+        # bound = gpd.read_file(UK_SHP_ADM2)
+        # adm_col = "ADM2_EN"
+
+    elif "war1" in event:
         tk1 = "02/24_02/28"
         event_bound = conflict_df.loc[conflict_df[f"conflict_{tk1}"] > 2]
-    elif event == "war2-conflict":
-        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 10]
+        # list_city = event_bound[adm_col].to_list()
+        list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
+        # list_city = ["Kyiv"]
+    elif "war2" in event:
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 20]
+        # list_city = event_bound[adm_col].to_list()
+        list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
 
-    for adm2 in event_bound[adm2_col].values:
-        geometry = event_bound.loc[event_bound[adm2_col] == adm2].geometry
-        clip_arr = ds.rio.clip(geometry, crs)[var].values.reshape(-1)
+    for adm2 in list_city:
+        geometry = bound.loc[bound[adm_col] == adm2].geometry
+        clip_arr = ds.rio.clip(geometry, bound.crs)[var].values.reshape(-1)
         flat_array = np.concatenate((flat_array, clip_arr), axis=None)
+
+    flat_array = flat_array[~np.isnan(flat_array)]
 
     return flat_array
 
