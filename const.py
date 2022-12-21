@@ -89,7 +89,7 @@ NO2_UNIT = f"$10^{{{-6}}}$ $mol/m^2$"
 
 S5P_OBS_COL = r"OBS_S5P"
 S5P_PRED_COL = r"BAU_S5P"
-OBS_PRED_CHNAGE = r"Observed_Deweathered_Difference"
+OBS_PRED_CHNAGE = r"OBS_BAU_Difference"
 
 ERA5_COLS = ["u10", "v10", "d2m", "t2m", "blh", "z"]
 POP_COLS = ["pop"]
@@ -135,3 +135,5 @@ LG_CONFLICT = [
 LG_BORDER = [
     mpatches.Patch(facecolor="w", edgecolor=EDGE_COLOR_BORDER, label="Border City")
 ]
+
+THRESHOLD_CONFLICT_POINT = 70

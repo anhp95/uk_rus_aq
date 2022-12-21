@@ -22,7 +22,8 @@ from fig_plt import *
 
 class Dataset(object):
 
-    de_weather_model_path = DE_WEATHER_MODEL
+    de_weather_model_train_path = DE_WEATHER_MODEL_TRAIN
+    de_weather_model_pred_path = DE_WEATHER_MODEL_PRED
 
     train_geo_path = TRAIN_GEO
     test_geo_path = TEST_GEO
@@ -45,12 +46,14 @@ class Dataset(object):
         self.test_2019 = pd.DataFrame()
 
         self.best_params = {}
-        self.de_weather_model = None
+        self.de_weather_model_train = None
+        self.de_weather_model_pred = None
 
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
         self.extract_list_geo()
         # self.params_search()
-        self.train_de_weather_model(10)
+        # self.train_de_weather_model(10)
+        self.build_deweather_pred()
         self.to_df()
         self.de_weather()
 
@@ -178,13 +181,15 @@ class Dataset(object):
 
                 X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
 
-                self.de_weather_model = RandomForestRegressor(
+                self.de_weather_model_train = RandomForestRegressor(
                     n_estimators=400, min_samples_leaf=7, n_jobs=-1
                 )
-                self.de_weather_model = self.de_weather_model.fit(X_train, y_train)
+                self.de_weather_model_train = self.de_weather_model_train.fit(
+                    X_train, y_train
+                )
 
-                y_pred = self.de_weather_model.predict(X_test)
-                y_pred_train = self.de_weather_model.predict(X_train)
+                y_pred = self.de_weather_model_train.predict(X_test)
+                y_pred_train = self.de_weather_model_train.predict(X_train)
 
                 mse_test = mean_squared_error(y_test, y_pred)
                 mse_train = mean_squared_error(y_train, y_pred_train)
@@ -204,7 +209,8 @@ class Dataset(object):
                     r2_best = r2_test
 
                     pickle.dump(
-                        self.de_weather_model, open(self.de_weather_model_path, "wb")
+                        self.de_weather_model_train,
+                        open(self.de_weather_model_train_path, "wb"),
                     )
                     pickle.dump(self.train_geo, open(self.train_geo_path, "wb"))
                     pickle.dump(self.test_geo, open(self.test_geo_path, "wb"))
@@ -214,12 +220,14 @@ class Dataset(object):
 
         self.train_geo = pickle.load(open(self.train_geo_path, "rb"))
         self.test_geo = pickle.load(open(self.test_geo_path, "rb"))
-        self.de_weather_model = pickle.load(open(self.de_weather_model_path, "rb"))
+        self.de_weather_model_train = pickle.load(
+            open(self.de_weather_model_train_path, "rb")
+        )
 
         self.extract_train_test()
         X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
-        y_pred = self.de_weather_model.predict(X_test)
-        y_pred_train = self.de_weather_model.predict(X_train)
+        y_pred = self.de_weather_model_train.predict(X_test)
+        y_pred_train = self.de_weather_model_train.predict(X_train)
 
         print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
         print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
@@ -238,27 +246,54 @@ class Dataset(object):
 
         return y_pred, y_test, y_pred_train, y_train
 
+    def build_deweather_pred(self):
+        if not os.path.exists(self.de_weather_model_pred_path):
+            self.de_weather_model_pred = RandomForestRegressor(
+                n_estimators=400, min_samples_leaf=7, n_jobs=-1
+            )
+            train = self.reform_data(2019, self.list_geo).dropna()
+            X_train = train.drop(columns=[S5P_OBS_COL, "time"]).values
+            y_train = train[S5P_OBS_COL].values
+            self.de_weather_model_pred = self.de_weather_model_pred.fit(
+                X_train, y_train
+            )
+            pickle.dump(
+                self.de_weather_model_pred, open(self.de_weather_model_pred_path, "wb")
+            )
+        self.de_weather_model_pred = pickle.load(
+            open(self.de_weather_model_pred_path, "rb")
+        )
+
     def to_df(self):
 
+        self.df_2019 = self.reform_data(2019, self.list_geo).fillna(0)
         self.df_2020 = self.reform_data(2020, self.list_geo).fillna(0)
         self.df_2021 = self.reform_data(2021, self.list_geo).fillna(0)
         self.df_2022 = self.reform_data(2022, self.list_geo).fillna(0)
 
     def de_weather(self):
 
-        s5p_2020_pred = self.de_weather_model.predict(
+        s5p_2019_pred = self.de_weather_model_pred.predict(
+            self.df_2019.drop(columns=[S5P_OBS_COL, "time"]).values
+        )
+        s5p_2020_pred = self.de_weather_model_pred.predict(
             self.df_2020.drop(columns=[S5P_OBS_COL, "time"]).values
         )
-        s5p_2021_pred = self.de_weather_model.predict(
+        s5p_2021_pred = self.de_weather_model_pred.predict(
             self.df_2021.drop(columns=[S5P_OBS_COL, "time"]).values
         )
-        s5p_2022_pred = self.de_weather_model.predict(
+        s5p_2022_pred = self.de_weather_model_pred.predict(
             self.df_2022.drop(columns=[S5P_OBS_COL, "time"]).values
         )
+
+        self.df_2019[S5P_PRED_COL] = s5p_2019_pred
         self.df_2020[S5P_PRED_COL] = s5p_2020_pred
         self.df_2021[S5P_PRED_COL] = s5p_2021_pred
         self.df_2022[S5P_PRED_COL] = s5p_2022_pred
 
+        self.df_2019[[S5P_PRED_COL, S5P_OBS_COL]] = (
+            self.df_2019[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
+        )
         self.df_2020[[S5P_PRED_COL, S5P_OBS_COL]] = (
             self.df_2020[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
         )
@@ -269,6 +304,7 @@ class Dataset(object):
             self.df_2022[[S5P_PRED_COL, S5P_OBS_COL]] * 1e6
         )
 
+        self.dw_2019 = self.df_2019.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2020 = self.df_2020.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2021 = self.df_2021.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2022 = self.df_2022.set_index(["time", "lat", "lon"]).to_xarray()

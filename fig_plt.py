@@ -488,14 +488,14 @@ def plot_fire_conflict():
 # %%
 def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
 
-    vl_covid_clr = "#252525"
-    vl_war_clr = "#252525"
+    vl_covid_clr = "#33a02c"
+    vl_war_clr = "#1f78b4"
     label_war = "War start date"
-    label_covid = "Lockdown"
+    label_covid = "Lockdown period"
 
     ls_covid = "dashed"
     ls_war = "solid"
-    lw = 1.5
+    lw = 2.5
 
     pred_truth_diff = ["cyan", "red", "#feb24c"]
 
@@ -518,7 +518,7 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
     if set_ylabel:
         ax.set_ylabel(NO2_UNIT)
     ax.grid(color="#d9d9d9")
-    ax.set_title(f"{ppl_name}-{year}", fontsize=20)
+    ax.set_title(f"{ppl_name}-{year}", fontsize=18)
     handles, labels = ax.get_legend_handles_labels()
 
     ax.axhline(
@@ -543,30 +543,34 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
     #         linestyle=ls_covid,
     #     )
     # elif year == 2021:
-    covid_line = ax.axvline(
-        x=np.datetime64(f"{year}-03-25T00:00:00.000000000"),
-        color=vl_covid_clr,
-        linewidth=lw,
-        linestyle=ls_covid,
-    )
-    ax.axvline(
-        x=np.datetime64(f"{year}-05-11T00:00:00.000000000"),
-        color=vl_covid_clr,
-        linewidth=lw,
-        linestyle=ls_covid,
-    )
-    war_line = ax.axvline(
-        x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
-        color=vl_war_clr,
-        linewidth=lw,
-        linestyle=ls_war,
-    )
+    if year != 2019:
+        covid_line = ax.axvline(
+            x=np.datetime64(f"{year}-03-25T00:00:00.000000000"),
+            color=vl_covid_clr,
+            linewidth=lw,
+            linestyle=ls_covid,
+        )
+        ax.axvline(
+            x=np.datetime64(f"{year}-05-11T00:00:00.000000000"),
+            color=vl_covid_clr,
+            linewidth=lw,
+            linestyle=ls_covid,
+        )
+        war_line = ax.axvline(
+            x=np.datetime64(f"{year}-02-24T00:00:00.000000000"),
+            color=vl_war_clr,
+            linewidth=lw,
+            linestyle=ls_war,
+        )
 
-    handles = handles + [war_line]
-    labels = labels + [label_war]
+        handles = handles + [war_line]
+        labels = labels + [label_war]
 
-    handles = handles + [covid_line]
-    labels = labels + [label_covid]
+        handles = handles + [covid_line]
+        labels = labels + [label_covid]
+        return handles, labels
+
+    return
 
     # elif year == 2022:
     #     ax.axvline(
@@ -577,11 +581,10 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
     #         label=label_war,
     #     )
 
-    return handles, labels
-
 
 def plot_ppl_obs_bau_line_mlt(org_ds):
 
+    ds_2019 = prep_ds(org_ds, 2019)
     ds_2020 = prep_ds(org_ds, 2020)
     ds_2021 = prep_ds(org_ds, 2021)
     ds_2022 = prep_ds(org_ds, 2022)
@@ -594,45 +597,58 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
     for i, ppl_name in enumerate(coal_gdf.name.values):
 
         geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
-        fig, ax = plt.subplots(1, 3, figsize=(16, 4))
+        fig, ax = plt.subplots(1, 4, figsize=(20, 4))
 
         plot_ax_line(
-            ds_2020, geometry, ppl_name, coal_gdf, ax[0], 2020, set_ylabel="True"
+            ds_2019, geometry, ppl_name, coal_gdf, ax[0], 2019, set_ylabel=True
+        )
+        plot_ax_line(
+            ds_2020, geometry, ppl_name, coal_gdf, ax[1], 2020, 
         )
         handles, labels = plot_ax_line(
-            ds_2021, geometry, ppl_name, coal_gdf, ax[1], 2021
+            ds_2021, geometry, ppl_name, coal_gdf, ax[2], 2021
         )
-        plot_ax_line(ds_2022, geometry, ppl_name, coal_gdf, ax[2], 2022)
+        plot_ax_line(ds_2022, geometry, ppl_name, coal_gdf, ax[3], 2022)
 
         fig.legend(
-            handles, labels, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.01)
+            handles, labels, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.01), fontsize=18
         )
 
 
 def plot_obs_bau_pop_line_mlt(org_ds):
 
+    ds_2019 = prep_ds(org_ds, 2019)
     ds_2020 = prep_ds(org_ds, 2020)
     ds_2021 = prep_ds(org_ds, 2021)
     ds_2022 = prep_ds(org_ds, 2022)
 
     bound_lv2, crs = get_bound_pop_lv2()
-    list_city = bound_lv2["ADM2_EN"].values
-    nrows, ncols = len(list_city), 3
+    list_city = [
+        "Kyiv",
+        "Kharkivskyi",
+        "Donetskyi",
+        "Lvivskyi",
+        "Dniprovskyi",
+        "Odeskyi",
+        "Zaporizkyi",
+        "Kryvorizkyi",
+    ]
+    nrows, ncols = len(list_city), 4
     fig, ax = plt.subplots(
-        nrows, ncols, figsize=(2.5 * nrows, 12 * ncols), layout="constrained"
+        nrows, ncols, figsize=(4 * nrows, 12 * ncols), layout="constrained"
     )
     for i, city in enumerate(list_city):
 
         geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
         # fig, ax = plt.subplots(1, 3, figsize=(16, 4))
-
         plot_ax_line(
-            ds_2020, geometry, city, bound_lv2, ax[i][0], 2020, set_ylabel=True
+            ds_2019, geometry, city, bound_lv2, ax[i][0], 2019, set_ylabel=True
         )
+        plot_ax_line(ds_2020, geometry, city, bound_lv2, ax[i][1], 2020)
         handles, labels = plot_ax_line(
-            ds_2021, geometry, city, bound_lv2, ax[i][1], 2021
+            ds_2021, geometry, city, bound_lv2, ax[i][2], 2021
         )
-        plot_ax_line(ds_2022, geometry, city, bound_lv2, ax[i][2], 2022)
+        plot_ax_line(ds_2022, geometry, city, bound_lv2, ax[i][3], 2022)
 
     fig.legend(
         handles,
@@ -640,7 +656,7 @@ def plot_obs_bau_pop_line_mlt(org_ds):
         ncol=5,
         loc="upper center",
         bbox_to_anchor=(0.5, -0.01),
-        fontsize=22,
+        fontsize=32,
     )
 
 
@@ -817,7 +833,9 @@ def plot_weather_params(ds, event="covid"):
                 sel_ds = ds.era5.sel(time=slice(sd, ed))
                 # ts_data = sel_ds[var].values.reshape(-1)
                 # if event == "covid":
-                ts_data = clip_and_flat_event_city(sel_ds, var, tk, conflict_df, border_df, event)
+                ts_data = clip_and_flat_event_city(
+                    sel_ds, var, tk, conflict_df, border_df, event
+                )
 
                 ws = np.ones_like(ts_data) * 100 / ts_data.size
                 ax[i][j].hist(
@@ -1711,7 +1729,7 @@ def plot_conflict_war_adm2():
     )
 
 
-def plot_wind_rose(ds, event="border"):
+def plot_wind_rose(ds, year_src, event="border"):
 
     border_df = get_boundary_cities()
     conflict_df = get_monthly_conflict()
@@ -1719,24 +1737,24 @@ def plot_wind_rose(ds, event="border"):
     wind_var = "wind"
     u10_var = "u10"
     v10_var = "v10"
-    year = 2022
+    year_target = 2022
     bins = [i for i in range(0, 7)]
     # tk = "July"
 
     u10 = ds.era5[u10_var]
     v10 = ds.era5[v10_var]
     ds.era5[wind_var] = np.sqrt(u10**2 + v10**2)
-    sd_ed = PERIOD_DICT[2022]
+    sd_ed = PERIOD_DICT[year_target]
     tks = list(sd_ed.keys())[1:]
     fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-    fig.suptitle("Wind speed and direction in 2022")
+    fig.suptitle(f"Wind speed and direction in {year_src}")
     for i, tk in enumerate(tks):
         t = sd_ed[tk]
-        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}{HOUR_STR}")
-        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
+        sd = np.datetime64(f"{year_src}-{t['sm']}-{t['sd']}{HOUR_STR}")
+        ed = np.datetime64(f"{year_src}-{t['em']}-{t['ed']}{HOUR_STR}")
         july_wind_ds = ds.era5.sel(time=slice(sd, ed))[[wind_var, u10_var, v10_var]]
 
-        threshold_point = 2 if i == 0 else 70
+        threshold_point = 2 if i == 0 else THRESHOLD_CONFLICT_POINT
         event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > threshold_point]
 
         if event == "border":

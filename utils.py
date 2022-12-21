@@ -53,11 +53,13 @@ def read_grib(grib_file):
 
 def prep_ds(org_ds, year):
 
-    if year == 2020:
+    if year == 2019:
+        ds = org_ds.dw_2019
+    elif year == 2020:
         ds = org_ds.dw_2020
     elif year == 2021:
         ds = org_ds.dw_2021
-    else:
+    elif year == 2022:
         ds = org_ds.dw_2022
 
     ds = ds[[S5P_PRED_COL, S5P_OBS_COL]]
@@ -139,7 +141,7 @@ def clip_and_flat_event_city(ds, var, tk, conflict_df, border_df, event="covid")
         list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
         # list_city = ["Kyiv"]
     elif "war2" in event:
-        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 20]
+        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > THRESHOLD_CONFLICT_POINT]
         # list_city = event_bound[adm_col].to_list()
         list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
 
