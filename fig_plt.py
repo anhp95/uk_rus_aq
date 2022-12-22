@@ -486,7 +486,9 @@ def plot_fire_conflict():
 
 
 # %%
-def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
+def plot_ax_line(
+    ds, geometry, location, gdf, ax, year, set_ylabel=False, get_table=False
+):
 
     vl_covid_clr = "#33a02c"
     vl_war_clr = "#1f78b4"
@@ -501,12 +503,27 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
 
     sd = np.datetime64(f"{year}-02-01T00:00:00.000000000")
     ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
-    ds_clip = (
-        ds.rio.clip(geometry, gdf.crs)
-        .sel(time=slice(sd, ed))
-        .mean(dim=["lat", "lon"])[[S5P_PRED_COL, S5P_OBS_COL]]
+    ds_clip = ds.rio.clip(geometry, gdf.crs).sel(time=slice(sd, ed))[
+        [S5P_PRED_COL, S5P_OBS_COL]
+    ]
+
+    ds_clip_plot = ds_clip.mean(dim=["lat", "lon"], skipna=True)
+
+    # calculate covid stats
+    sd_cv19 = np.datetime64(f"{year}-04-18T00:00:00.000000000")
+    ed_cv19 = np.datetime64(f"{year}-05-08T00:00:00.000000000")
+    ds_clip_covid = ds_clip.sel(time=slice(sd_cv19, ed_cv19)).mean(dim=["lat", "lon"])
+    obs_bau = (
+        (ds_clip_covid[S5P_OBS_COL] - ds_clip_covid[S5P_PRED_COL])
+        * 100
+        / ds_clip_covid[S5P_PRED_COL]
     )
-    org_df = ds_clip.to_dataframe()
+    t = obs_bau.values.shape
+    obs_bau_std = np.nanstd(np.average(obs_bau.values.reshape(3, -1), axis=0))
+    obs_bau_mean = obs_bau.mean(dim=["time"], skipna=True).item()
+
+    # ploting
+    org_df = ds_clip_plot.to_dataframe()
     df = get_nday_mean(org_df, nday=3)
 
     df[OBS_PRED_CHNAGE] = df[S5P_OBS_COL] - df[S5P_PRED_COL]
@@ -518,7 +535,7 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
     if set_ylabel:
         ax.set_ylabel(NO2_UNIT)
     ax.grid(color="#d9d9d9")
-    ax.set_title(f"{ppl_name}-{year}", fontsize=18)
+    ax.set_title(f"{location}-{year}", fontsize=18)
     handles, labels = ax.get_legend_handles_labels()
 
     ax.axhline(
@@ -568,9 +585,15 @@ def plot_ax_line(ds, geometry, ppl_name, gdf, ax, year, set_ylabel=False):
 
         handles = handles + [covid_line]
         labels = labels + [label_covid]
-        return handles, labels
+        return (
+            obs_bau_mean,
+            obs_bau_std,
+            handles,
+            labels if get_table else handles,
+            labels,
+        )
 
-    return
+    return obs_bau_mean, obs_bau_std if get_table else 1
 
     # elif year == 2022:
     #     ax.axvline(
@@ -590,20 +613,24 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
     ds_2022 = prep_ds(org_ds, 2022)
 
     coal_gdf = gpd.read_file(UK_COAL_SHP)
-    # coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.15, cap_style=3).to_crs(
-    #     coal_gdf.crs
-    # )
+    coal_gdf.crs = "EPSG:4326"
+    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.1, cap_style=3)
 
     for i, ppl_name in enumerate(coal_gdf.name.values):
 
-        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
+        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
         fig, ax = plt.subplots(1, 4, figsize=(20, 4))
 
         plot_ax_line(
             ds_2019, geometry, ppl_name, coal_gdf, ax[0], 2019, set_ylabel=True
         )
         plot_ax_line(
-            ds_2020, geometry, ppl_name, coal_gdf, ax[1], 2020, 
+            ds_2020,
+            geometry,
+            ppl_name,
+            coal_gdf,
+            ax[1],
+            2020,
         )
         handles, labels = plot_ax_line(
             ds_2021, geometry, ppl_name, coal_gdf, ax[2], 2021
@@ -611,7 +638,12 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
         plot_ax_line(ds_2022, geometry, ppl_name, coal_gdf, ax[3], 2022)
 
         fig.legend(
-            handles, labels, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.01), fontsize=18
+            handles,
+            labels,
+            ncol=5,
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.01),
+            fontsize=18,
         )
 
 
@@ -637,6 +669,15 @@ def plot_obs_bau_pop_line_mlt(org_ds):
     fig, ax = plt.subplots(
         nrows, ncols, figsize=(4 * nrows, 12 * ncols), layout="constrained"
     )
+    year_col = [i for i in range(2020, 2023)]
+    name_col = ["mean", "var"]
+    table_dict = {}
+
+    for y in year_col:
+        for n in name_col:
+            table_dict[f"{y}_{n}"] = []
+
+    table_dict["city"] = []
     for i, city in enumerate(list_city):
 
         geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
@@ -644,20 +685,37 @@ def plot_obs_bau_pop_line_mlt(org_ds):
         plot_ax_line(
             ds_2019, geometry, city, bound_lv2, ax[i][0], 2019, set_ylabel=True
         )
-        plot_ax_line(ds_2020, geometry, city, bound_lv2, ax[i][1], 2020)
-        handles, labels = plot_ax_line(
-            ds_2021, geometry, city, bound_lv2, ax[i][2], 2021
+        obs_bau_2020 = plot_ax_line(
+            ds_2020, geometry, city, bound_lv2, ax[i][1], 2020, get_table=True
         )
-        plot_ax_line(ds_2022, geometry, city, bound_lv2, ax[i][3], 2022)
+        # with handles and labels
+        obs_bau_2021 = plot_ax_line(
+            ds_2021, geometry, city, bound_lv2, ax[i][2], 2021, get_table=True
+        )
+        obs_bau_2022 = plot_ax_line(
+            ds_2022, geometry, city, bound_lv2, ax[i][3], 2022, get_table=False
+        )
+
+        table_dict["2022_mean"].append(obs_bau_2022[0])
+        table_dict["2022_var"].append(obs_bau_2022[1])
+
+        table_dict["2021_mean"].append(obs_bau_2021[0])
+        table_dict["2021_var"].append(obs_bau_2021[1])
+
+        table_dict["2020_mean"].append(obs_bau_2020[0])
+        table_dict["2020_var"].append(obs_bau_2020[1])
+
+        table_dict["city"].append(city)
 
     fig.legend(
-        handles,
-        labels,
+        obs_bau_2021[2],
+        obs_bau_2021[3],
         ncol=5,
         loc="upper center",
         bbox_to_anchor=(0.5, -0.01),
         fontsize=32,
     )
+    return pd.DataFrame.from_dict(table_dict)
 
 
 def plot_obs_bau_pop_line_sgl(org_ds, year):
