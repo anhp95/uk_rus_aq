@@ -11,8 +11,8 @@ HOUR_STR = "T00:00:00.000000000"
 
 PERIOD_DICT = {
     2022: {
-        "02/16_02/23": {"sd": "16", "sm": "02", "ed": "23", "em": "02"},
-        "02/24_02/28": {"sd": "24", "sm": "02", "ed": "28", "em": "02"},
+        "02/16_02/15": {"sd": "01", "sm": "02", "ed": "15", "em": "02"},
+        "02/24_02/28": {"sd": "15", "sm": "02", "ed": "08", "em": "03"},
         # "Feb 24-28": {"sd": "01", "sm": "02", "ed": "01", "em": "03"},
         "March": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
         "April": {"sd": "01", "sm": "04", "ed": "01", "em": "05"},
@@ -29,7 +29,7 @@ PERIOD_DICT = {
         "July": {"sd": "01", "sm": "07", "ed": "01", "em": "08"},
     },
     2020: {
-        "02/25_03/25": {"sd": "25", "sm": "02", "ed": 25, "em": "03"},
+        "02/08_03/25": {"sd": "08", "sm": "02", "ed": 25, "em": "03"},
         "03/25_05/11": {"sd": 25, "sm": "03", "ed": 11, "em": "05"},
         # "Feb 24-28": {"sd": "01", "sm": "02", "ed": "01", "em": "03"},
         # "March": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
@@ -122,18 +122,30 @@ COAL_COLOR = "#542788"
 BOUNDARY_COLOR = "green"
 CMAP_FIRE = "Reds"
 CMAP_CONFLICT = "OrRd"
-CMAP_NO2 = "RdYlBu_r"
+# CMAP_NO2 = "RdYlBu_r"
+CMAP_NO2 = "bwr"
 EDGE_COLOR_CONFLICT = "red"
 EDGE_COLOR_BORDER = "green"
 CMAP_WIND = "Spectral_r"
 
 LG_CONFLICT = [
-        mpatches.Patch(
-            facecolor="w", edgecolor=EDGE_COLOR_CONFLICT, label="Reported Conflict"
-        )
-    ]
+    mpatches.Patch(
+        facecolor="w", edgecolor=EDGE_COLOR_CONFLICT, label="Reported Conflict"
+    )
+]
 LG_BORDER = [
     mpatches.Patch(facecolor="w", edgecolor=EDGE_COLOR_BORDER, label="Border City")
 ]
 
 THRESHOLD_CONFLICT_POINT = 70
+
+NONE_OH_COLS = [
+    "cams_no2",
+    "u10",
+    "v10",
+    "d2m",
+    "t2m",
+    "blh",
+    "z",
+    "pop",
+]

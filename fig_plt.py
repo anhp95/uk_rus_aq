@@ -159,10 +159,10 @@ def plot_obs_bau_map(org_ds, year):
 
     ds = prep_ds(org_ds, year)
     coal_gdf = gpd.read_file(UK_COAL_SHP)
-    sd_ed = PERIOD_DICT[year]
+    sd_ed = PERIOD_DICT[2022]
     adm_col = "ADM2_EN"
 
-    tks = list(sd_ed.keys())
+    tks = list(sd_ed.keys())[1:]
     nrow = int(len(tks) / 2)
     ncols = 2
     figure, ax = plt.subplots(
@@ -188,9 +188,9 @@ def plot_obs_bau_map(org_ds, year):
 
         pcm = change_ds.plot(
             ax=ax[i][j],
-            cmap="coolwarm",
-            vmin=-100,
-            vmax=100,
+            cmap="bwr",
+            vmin=-40,
+            vmax=40,
             add_colorbar=False
             # legend=False
             # cbar_kwargs={
@@ -229,8 +229,6 @@ def plot_obs_bau_map(org_ds, year):
     plt.suptitle(
         rf"Observed_Deweathered_NO$_{2}$_Difference_{year} (Pixel level)", fontsize=18
     )
-    # plt.tight_layout()
-    # plt.subplots_adjust(top=0.95)
 
 
 # %%
@@ -496,7 +494,7 @@ def plot_ax_line(
     label_covid = "Lockdown period"
 
     ls_covid = "dashed"
-    ls_war = "solid"
+    ls_war = "dashed"
     lw = 2.5
 
     pred_truth_diff = ["cyan", "red", "#feb24c"]
@@ -510,8 +508,8 @@ def plot_ax_line(
     ds_clip_plot = ds_clip.mean(dim=["lat", "lon"], skipna=True)
 
     # calculate covid stats
-    sd_cv19 = np.datetime64(f"{year}-04-18T00:00:00.000000000")
-    ed_cv19 = np.datetime64(f"{year}-05-08T00:00:00.000000000")
+    sd_cv19 = np.datetime64(f"{year}-04-15T00:00:00.000000000")
+    ed_cv19 = np.datetime64(f"{year}-05-05T00:00:00.000000000")
     ds_clip_covid = ds_clip.sel(time=slice(sd_cv19, ed_cv19)).mean(dim=["lat", "lon"])
     obs_bau = (
         (ds_clip_covid[S5P_OBS_COL] - ds_clip_covid[S5P_PRED_COL])
@@ -530,7 +528,7 @@ def plot_ax_line(
     df[[S5P_PRED_COL, S5P_OBS_COL, OBS_PRED_CHNAGE]].plot.line(
         ax=ax, color=pred_truth_diff, legend=False
     )
-    ax.set_ylim([-40, 200])
+    # ax.set_ylim([-40, 200])
 
     if set_ylabel:
         ax.set_ylabel(NO2_UNIT)
@@ -614,7 +612,7 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
 
     coal_gdf = gpd.read_file(UK_COAL_SHP)
     coal_gdf.crs = "EPSG:4326"
-    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.1, cap_style=3)
+    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.15, cap_style=3)
 
     for i, ppl_name in enumerate(coal_gdf.name.values):
 
@@ -632,19 +630,17 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
             ax[1],
             2020,
         )
-        handles, labels = plot_ax_line(
-            ds_2021, geometry, ppl_name, coal_gdf, ax[2], 2021
-        )
+        plot_ax_line(ds_2021, geometry, ppl_name, coal_gdf, ax[2], 2021)
         plot_ax_line(ds_2022, geometry, ppl_name, coal_gdf, ax[3], 2022)
 
-        fig.legend(
-            handles,
-            labels,
-            ncol=5,
-            loc="upper center",
-            bbox_to_anchor=(0.5, -0.01),
-            fontsize=18,
-        )
+        # fig.legend(
+        #     handles,
+        #     labels,
+        #     ncol=5,
+        #     loc="upper center",
+        #     bbox_to_anchor=(0.5, -0.01),
+        #     fontsize=18,
+        # )
 
 
 def plot_obs_bau_pop_line_mlt(org_ds):
@@ -1058,6 +1054,7 @@ def plot_obs_bubble(event="war"):
     )
 
     j = 0
+    mean_std_dict = {}
     for i, year in enumerate(year_srcs + [year_target]):
         i = int(i / 2)
         j = 0 if j > 1 else j
@@ -1084,6 +1081,8 @@ def plot_obs_bubble(event="war"):
             * 100
             / bound_lv2[f"{year}[{tks[0]}]"]
         )
+        mean_std_dict[f"mean_{col}"] = np.mean(bound_lv2[col].values)
+        mean_std_dict[f"std_{col}"] = np.nanstd(bound_lv2[col].values)
         # Plot
         ax = self_ax[i][j] if nrows > 1 else self_ax[j]
         bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
@@ -1100,7 +1099,7 @@ def plot_obs_bubble(event="war"):
             ax=ax,
         )
         norm = plt.Normalize(-1 * norm_val, norm_val)
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm = plt.cm.ScalarMappable(cmap=CMAP_NO2, norm=norm)
         sm.set_array([])
 
         g.set(title=rf"{INDEX_FIG[j]}) {col}")
@@ -1149,6 +1148,8 @@ def plot_obs_bubble(event="war"):
                 * 100
                 / bound_lv2[f"{year_src}[{tk}]"]
             )
+            mean_std_dict[f"mean_{col}"] = np.mean(bound_lv2[col].values)
+            mean_std_dict[f"std_{col}"] = np.nanstd(bound_lv2[col].values)
             ax = inter_ax[i][j] if nrows > 1 else inter_ax[j]
             bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
             g = sns.scatterplot(
@@ -1193,7 +1194,7 @@ def plot_obs_bubble(event="war"):
     )
     plt.suptitle(rf'OBS "year-to-year" change estimates (Major cities)', fontsize=18)
 
-    return bound_lv2
+    return bound_lv2, mean_std_dict
 
 
 def plot_obs_change_adm2():
@@ -1467,18 +1468,19 @@ def plot_obs_change_adm2():
     return bound_lv2
 
 
-def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
+def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
+    year_war = 2022
     border_df = get_boundary_cities()
     conflict_df = get_monthly_conflict()
     coal_gdf = gpd.read_file(UK_COAL_SHP)
     # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
-    ds = prep_ds(org_ds, year)
+    ds = prep_ds(org_ds, year_ref)
 
     conflict_ds = prep_conflict_df()
     fire_ds = prep_fire_df()
 
     bound_lv2 = gpd.read_file(UK_SHP_ADM2)
-    sd_ed = PERIOD_DICT[year]
+    sd_ed = PERIOD_DICT[year_war]
 
     adm_col = "ADM2_EN"
 
@@ -1496,8 +1498,8 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
         dict_fire_change[tk] = []
 
         t = sd_ed[tk]
-        sd = np.datetime64(f"{year}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-        ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}T00:00:00.000000000")
+        sd = np.datetime64(f"{year_ref}-{t['sm']}-{t['sd']}T00:00:00.000000000")
+        ed = np.datetime64(f"{year_ref}-{t['em']}-{t['ed']}T00:00:00.000000000")
 
         for adm in list_adm:
             geometry = bound_lv2.loc[bound_lv2[adm_col] == adm].geometry
@@ -1570,7 +1572,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
         ax[1].set_title(f"b) Fire spots", fontsize=14)
         for i in range(len(ax)):
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-        plt.suptitle(rf"Conflict locations and Fire spots in {year}[{t}]", fontsize=18)
+        plt.suptitle(rf"Conflict locations and Fire spots in {year_ref}[{t}]", fontsize=18)
     elif mode == "2_no2_bau":
         for i in [0, 1]:
             bound_lv2.plot(
@@ -1578,8 +1580,8 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 ax=ax[i],
                 legend=True,
                 cmap=CMAP_NO2,
-                vmin=-20,
-                vmax=20,
+                vmin=-40,
+                vmax=40,
                 legend_kwds={
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
@@ -1588,7 +1590,7 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 },
             )
             ax[i].set_title(
-                f"{INDEX_FIG[i]}) {year}_OBS[{tks[i]}] - {year}_BAU[{tks[i]}]",
+                f"{INDEX_FIG[i]}) {year_ref}_OBS[{tks[i]}] - {year_ref}_BAU[{tks[i]}]",
                 fontsize=14,
             )
             coal_gdf.plot(
@@ -1616,8 +1618,8 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 ax=ax[i][0],
                 legend=legend,
                 cmap=CMAP_NO2,
-                vmin=-20,
-                vmax=20,
+                vmin=-40,
+                vmax=40,
                 legend_kwds={
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
@@ -1678,9 +1680,9 @@ def plot_obs_bau_adm2(org_ds, year, mode="3_cf_no2_bau"):
                 handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left"
             )
 
-            ax[i][0].set_title(rf"{year}_OBS[{tk}] - {year}_BAU[{tk}]", fontsize=14)
-            ax[i][1].set_title(f"Conflict Locations {year}[{tk}]", fontsize=14)
-            ax[i][2].set_title(f"Fire Locations {year}[{tk}]", fontsize=14)
+            ax[i][0].set_title(rf"{year_ref}_OBS[{tk}] - {year_ref}_BAU[{tk}]", fontsize=14)
+            ax[i][1].set_title(f"Conflict Locations {year_ref}[{tk}]", fontsize=14)
+            ax[i][2].set_title(f"Fire Locations {year_ref}[{tk}]", fontsize=14)
         plt.suptitle(
             rf"OBS_NO$_{2}$ -  BAU_NO$_{2}$ difference , Conflict locations, and Fire spots 2022[Mar - Jul] (City level)",
             fontsize=18,
