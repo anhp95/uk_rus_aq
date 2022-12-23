@@ -650,16 +650,28 @@ def plot_obs_bau_pop_line_mlt(org_ds):
     ds_2021 = prep_ds(org_ds, 2021)
     ds_2022 = prep_ds(org_ds, 2022)
 
-    bound_lv2, crs = get_bound_pop_lv2()
+    # bound_lv2, crs = get_bound_pop_lv2()
+    col = "ADM3_EN"
+    bound_lv2 = gpd.read_file(UK_SHP_ADM3)
+    # list_city = [
+    #     "Kyiv",
+    #     "Kharkivskyi",
+    #     "Donetskyi",
+    #     "Lvivskyi",
+    #     "Dniprovskyi",
+    #     "Odeskyi",
+    #     "Zaporizkyi",
+    #     "Kryvorizkyi",
+    # ]
     list_city = [
         "Kyiv",
-        "Kharkivskyi",
-        "Donetskyi",
-        "Lvivskyi",
-        "Dniprovskyi",
-        "Odeskyi",
-        "Zaporizkyi",
-        "Kryvorizkyi",
+        "Kharkivska",
+        "Donetska",
+        "Lvivska",
+        "Dniprovska",
+        "Odeska",
+        "Zaporizka",
+        "Kryvorizka",
     ]
     nrows, ncols = len(list_city), 4
     fig, ax = plt.subplots(
@@ -676,7 +688,7 @@ def plot_obs_bau_pop_line_mlt(org_ds):
     table_dict["city"] = []
     for i, city in enumerate(list_city):
 
-        geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
+        geometry = bound_lv2.loc[bound_lv2[col] == city].geometry
         # fig, ax = plt.subplots(1, 3, figsize=(16, 4))
         plot_ax_line(
             ds_2019, geometry, city, bound_lv2, ax[i][0], 2019, set_ylabel=True
@@ -1572,7 +1584,9 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
         ax[1].set_title(f"b) Fire spots", fontsize=14)
         for i in range(len(ax)):
             bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-        plt.suptitle(rf"Conflict locations and Fire spots in {year_ref}[{t}]", fontsize=18)
+        plt.suptitle(
+            rf"Conflict locations and Fire spots in {year_ref}[{t}]", fontsize=18
+        )
     elif mode == "2_no2_bau":
         for i in [0, 1]:
             bound_lv2.plot(
@@ -1680,7 +1694,9 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
                 handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left"
             )
 
-            ax[i][0].set_title(rf"{year_ref}_OBS[{tk}] - {year_ref}_BAU[{tk}]", fontsize=14)
+            ax[i][0].set_title(
+                rf"{year_ref}_OBS[{tk}] - {year_ref}_BAU[{tk}]", fontsize=14
+            )
             ax[i][1].set_title(f"Conflict Locations {year_ref}[{tk}]", fontsize=14)
             ax[i][2].set_title(f"Fire Locations {year_ref}[{tk}]", fontsize=14)
         plt.suptitle(
