@@ -24,19 +24,20 @@ def get_bound(shp_file=UK_SHP_ADM0):
     return geometry, crs
 
 
-def get_bound_pop_lv2():
+def get_bound_pop():
 
+    adm_col = "ADM3_EN"
     city_pop_df = pd.read_csv(CITY_POP)
 
-    geo_df_lv2 = gpd.read_file(UK_SHP_ADM2)
+    geo_df_lv2 = gpd.read_file(UK_SHP_ADM3)
 
-    merge_df = pd.merge(city_pop_df, geo_df_lv2, on="ADM2_EN", how="inner")
+    merge_df = pd.merge(city_pop_df, geo_df_lv2, on=adm_col, how="inner")
 
     merge_df = gpd.GeoDataFrame(
         merge_df, crs=geo_df_lv2.crs, geometry=merge_df.geometry
     )
 
-    return merge_df[["ADM2_EN", "Population", "geometry"]], geo_df_lv2.crs
+    return merge_df[[adm_col, "Population", "geometry"]], geo_df_lv2.crs
 
 
 def read_tif(tif_file):
@@ -117,37 +118,50 @@ def get_nday_mean(df, nday=3):
     return df.set_index("time")
 
 
-def clip_and_flat_event_city(ds, var, tk, conflict_df, border_df, event="covid"):
-
-    # crs = border_df.crs
+def clip_and_flat_event_city(ds, var, tk, conflict_df, event):
 
     flat_array = np.array([])
-    bound = conflict_df
-    # bound = gpd.read_file(UK_SHP_ADM1)
-    # list_city = ["Donetska", "Kharkivska", "Zaporizka"]
+    # # list_city = ["Donetska", "Kharkivska", "Zaporizka"]
     adm_col = "ADM2_EN"
+    bound = conflict_df
 
-    if event == "covid":
+    # bound, _ = get_bound_pop()
+    # list_city = bound[adm_col].values
+    # list_city = LIST_POP_CITY
 
-        bound_lv2, _ = get_bound_pop_lv2()
-        list_city = bound_lv2[adm_col].values
-        # bound = gpd.read_file(UK_SHP_ADM2)
-        # adm_col = "ADM2_EN"
+    # coal_gdf = gpd.read_file(UK_COAL_SHP)
+    # coal_gdf.crs = "EPSG:4326"
+    # coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.2, cap_style=3)
 
-    elif "war1" in event:
-        tk1 = "02/24_02/28"
-        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk1}"] > 2]
-        # list_city = event_bound[adm_col].to_list()
-        list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
-        # list_city = ["Kyiv"]
-    elif "war2" in event:
-        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > THRESHOLD_CONFLICT_POINT]
-        # list_city = event_bound[adm_col].to_list()
-        list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
+    list_geo = []
+    list_crs = []
 
-    for adm2 in list_city:
-        geometry = bound.loc[bound[adm_col] == adm2].geometry
-        clip_arr = ds.rio.clip(geometry, bound.crs)[var].values.reshape(-1)
+    # elif "war1" in event:
+    #     tk1 = "02/24_02/28"
+    #     event_bound = conflict_df.loc[conflict_df[f"conflict_{tk1}"] > 2]
+    #     # list_city = event_bound[adm_col].to_list()
+    #     list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
+    #     # list_city = ["Kyiv"]
+    if "war2" in event:
+        event_bound = conflict_df.loc[
+            conflict_df[f"conflict_{tk}"] > THRESHOLD_CONFLICT_POINT
+        ]
+        list_city = event_bound[adm_col].to_list()
+        # list_city = event_bound[adm_col].to_list() + border_df[adm_col].to_list()
+
+    for adm in list_city:
+        geometry = bound.loc[bound[adm_col] == adm].geometry
+
+        list_geo.append(geometry)
+        list_crs.append(bound.crs)
+
+    # for ppl_name in coal_gdf.name.values:
+    #     geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
+    #     list_geo.append(geometry)
+    #     list_crs.append(coal_gdf.crs)
+
+    for geometry, crs in zip(list_geo, list_crs):
+        clip_arr = ds.rio.clip(geometry, crs)[var].values.reshape(-1)
         flat_array = np.concatenate((flat_array, clip_arr), axis=None)
 
     flat_array = flat_array[~np.isnan(flat_array)]

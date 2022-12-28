@@ -274,12 +274,12 @@ def plot_trend_line(ds, title):
 def plot_obs_pop_line():
 
     org_ds = prep_s5p_ds()
-
-    bound_lv2, crs = get_bound_pop_lv2()
-    list_city = bound_lv2["ADM2_EN"].values
+    adm_col = "ADM2_EN"
+    bound_pop, crs = get_bound_pop()
+    list_city = bound_pop[adm_col].values
 
     for city in list_city:
-        geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
+        geometry = bound_pop.loc[bound_pop[adm_col] == city].geometry
         ds_city = org_ds.rio.clip(geometry, crs)
         df = plot_trend_line(ds_city, city)
 
@@ -508,8 +508,8 @@ def plot_ax_line(
     ds_clip_plot = ds_clip.mean(dim=["lat", "lon"], skipna=True)
 
     # calculate covid stats
-    sd_cv19 = np.datetime64(f"{year}-04-15T00:00:00.000000000")
-    ed_cv19 = np.datetime64(f"{year}-05-05T00:00:00.000000000")
+    sd_cv19 = np.datetime64(f"{year}-03-25T00:00:00.000000000")
+    ed_cv19 = np.datetime64(f"{year}-05-11T00:00:00.000000000")
     ds_clip_covid = ds_clip.sel(time=slice(sd_cv19, ed_cv19)).mean(dim=["lat", "lon"])
     obs_bau = (
         (ds_clip_covid[S5P_OBS_COL] - ds_clip_covid[S5P_PRED_COL])
@@ -612,11 +612,12 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
 
     coal_gdf = gpd.read_file(UK_COAL_SHP)
     coal_gdf.crs = "EPSG:4326"
-    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.15, cap_style=3)
+    # coal_gdf["buffer"] = coal_gdf.geometry.buffer(0, cap_style=3)
 
     for i, ppl_name in enumerate(coal_gdf.name.values):
 
-        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
+        # geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
+        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
         fig, ax = plt.subplots(1, 4, figsize=(20, 4))
 
         plot_ax_line(
@@ -650,32 +651,23 @@ def plot_obs_bau_pop_line_mlt(org_ds):
     ds_2021 = prep_ds(org_ds, 2021)
     ds_2022 = prep_ds(org_ds, 2022)
 
-    # bound_lv2, crs = get_bound_pop_lv2()
     col = "ADM3_EN"
-    bound_lv2 = gpd.read_file(UK_SHP_ADM3)
+    bound_pop, crs = get_bound_pop()
+    # col = "ADM2_EN"
+    list_city = LIST_POP_CITY
     # list_city = [
     #     "Kyiv",
-    #     "Kharkivskyi",
-    #     "Donetskyi",
-    #     "Lvivskyi",
-    #     "Dniprovskyi",
-    #     "Odeskyi",
-    #     "Zaporizkyi",
-    #     "Kryvorizkyi",
+    #     "Kharkivska",
+    #     "Donetska",
+    #     "Lvivska",
+    #     "Dniprovska",
+    #     "Odeska",
+    #     "Zaporizka",
+    #     "Kryvorizka",
     # ]
-    list_city = [
-        "Kyiv",
-        "Kharkivska",
-        "Donetska",
-        "Lvivska",
-        "Dniprovska",
-        "Odeska",
-        "Zaporizka",
-        "Kryvorizka",
-    ]
     nrows, ncols = len(list_city), 4
     fig, ax = plt.subplots(
-        nrows, ncols, figsize=(4 * nrows, 12 * ncols), layout="constrained"
+        nrows, ncols, figsize=(4 * nrows, 17 * ncols), layout="constrained"
     )
     year_col = [i for i in range(2020, 2023)]
     name_col = ["mean", "var"]
@@ -688,20 +680,20 @@ def plot_obs_bau_pop_line_mlt(org_ds):
     table_dict["city"] = []
     for i, city in enumerate(list_city):
 
-        geometry = bound_lv2.loc[bound_lv2[col] == city].geometry
+        geometry = bound_pop.loc[bound_pop[col] == city].geometry
         # fig, ax = plt.subplots(1, 3, figsize=(16, 4))
         plot_ax_line(
-            ds_2019, geometry, city, bound_lv2, ax[i][0], 2019, set_ylabel=True
+            ds_2019, geometry, city, bound_pop, ax[i][0], 2019, set_ylabel=True
         )
         obs_bau_2020 = plot_ax_line(
-            ds_2020, geometry, city, bound_lv2, ax[i][1], 2020, get_table=True
+            ds_2020, geometry, city, bound_pop, ax[i][1], 2020, get_table=True
         )
         # with handles and labels
         obs_bau_2021 = plot_ax_line(
-            ds_2021, geometry, city, bound_lv2, ax[i][2], 2021, get_table=True
+            ds_2021, geometry, city, bound_pop, ax[i][2], 2021, get_table=True
         )
         obs_bau_2022 = plot_ax_line(
-            ds_2022, geometry, city, bound_lv2, ax[i][3], 2022, get_table=False
+            ds_2022, geometry, city, bound_pop, ax[i][3], 2022, get_table=False
         )
 
         table_dict["2022_mean"].append(obs_bau_2022[0])
@@ -728,17 +720,18 @@ def plot_obs_bau_pop_line_mlt(org_ds):
 
 def plot_obs_bau_pop_line_sgl(org_ds, year):
     ds = prep_ds(org_ds, year)
-    bound_lv2, crs = get_bound_pop_lv2()
+    bound_lv2, crs = get_bound_pop()
+    adm_col = "ADM2_EN"
     # bound_lv2 = gpd.read_file(UK_SHP_ADM2)
     city_no2 = {}
 
     sd = np.datetime64(f"{year}-02-01T00:00:00.000000000")
     ed = np.datetime64(f"{year}-07-31T00:00:00.000000000")
 
-    for i, city in enumerate(bound_lv2["ADM2_EN"].values):
+    for i, city in enumerate(bound_lv2[adm_col].values):
         fig = plt.figure(1 + i, figsize=(6, 4))
         ax = plt.subplot(1, 1, 1)
-        geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
+        geometry = bound_lv2.loc[bound_lv2[adm_col] == city].geometry
         ds_clip = (
             ds.rio.clip(geometry, crs)
             .sel(time=slice(sd, ed))
@@ -849,8 +842,8 @@ def plot_wind_speed_direction(ds, year):
 
 def plot_weather_params(ds, event="covid"):
 
-    border_df = get_boundary_cities()
-    conflict_df = get_monthly_conflict()
+    # border_df = get_boundary_cities()
+    # conflict_df = get_monthly_conflict()
 
     u10 = ds.era5["u10"]
     v10 = ds.era5["v10"]
@@ -897,15 +890,14 @@ def plot_weather_params(ds, event="covid"):
                 ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
                 # sel_ds = ds.era5.sel(time=slice(sd, ed)).mean("time")
                 sel_ds = ds.era5.sel(time=slice(sd, ed))
-                # ts_data = sel_ds[var].values.reshape(-1)
-                # if event == "covid":
-                ts_data = clip_and_flat_event_city(
-                    sel_ds, var, tk, conflict_df, border_df, event
-                )
+                ts_data = sel_ds[var].values.reshape(-1)
+                ts_data = ts_data[~np.isnan(ts_data)]
+                # ts_data = clip_and_flat_event_city(sel_ds, var, tk, conflict_df, event)
 
                 ws = np.ones_like(ts_data) * 100 / ts_data.size
                 ax[i][j].hist(
                     ts_data,
+                    bins=15,
                     weights=ws,
                     ec=color,
                     fc="None",
@@ -927,9 +919,10 @@ def plot_obs_bau_bubble(org_ds, year):
     ds = prep_ds(org_ds, year)
 
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
-    bound_lv2, crs = get_bound_pop_lv2()
+    adm_col = "ADM3_EN"
+    bound_pop, crs = get_bound_pop()
 
-    list_city = bound_lv2["ADM2_EN"].values
+    list_city = LIST_POP_CITY
     sd_ed = PERIOD_DICT[year]
 
     dict_no2_change = {}
@@ -946,7 +939,7 @@ def plot_obs_bau_bubble(org_ds, year):
 
         for city in list_city:
 
-            geometry = bound_lv2.loc[bound_lv2["ADM2_EN"] == city].geometry
+            geometry = bound_pop.loc[bound_pop[adm_col] == city].geometry
             city_ds = (
                 ds.rio.clip(geometry, crs)
                 .mean(dim=["lat", "lon"])
@@ -960,9 +953,9 @@ def plot_obs_bau_bubble(org_ds, year):
             )
 
     df_no2_change = pd.DataFrame.from_dict(dict_no2_change)
-    df_no2_change["Population"] = bound_lv2["Population"].values
+    df_no2_change["Population"] = bound_pop["Population"].values
     geo_df = gpd.GeoDataFrame(
-        df_no2_change, crs=crs, geometry=bound_lv2.geometry.centroid
+        df_no2_change, crs=crs, geometry=bound_pop.geometry.centroid
     )
 
     nrows = int(len(tks) / 2)
@@ -1047,9 +1040,9 @@ def plot_obs_bubble(event="war"):
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
 
     org_ds = prep_s5p_ds()
-    bound_lv2, crs = get_bound_pop_lv2()
-    adm_col = "ADM2_EN"
-    list_city = bound_lv2[adm_col].values
+    bound_pop, crs = get_bound_pop()
+    adm_col = "ADM3_EN"
+    list_city = bound_pop[adm_col].values
 
     year_target = 2022 if event == "war" else 2020
     sd_ed = PERIOD_DICT[year_target]
@@ -1077,7 +1070,7 @@ def plot_obs_bubble(event="war"):
             ed = np.datetime64(f"{year}-{t['em']}-{t['ed']}{HOUR_STR}")
 
             for city in list_city:
-                geometry = bound_lv2.loc[bound_lv2[adm_col] == city].geometry
+                geometry = bound_pop.loc[bound_pop[adm_col] == city].geometry
                 adm_ds = (
                     org_ds.rio.clip(geometry, crs)
                     .mean(dim=["lat", "lon"])
@@ -1085,24 +1078,24 @@ def plot_obs_bubble(event="war"):
                     .mean("time")[[S5P_OBS_COL]]
                 )
                 obs_dict_year[f"{year}[{tk}]"].append(adm_ds[S5P_OBS_COL].item())
-            bound_lv2[f"{year}[{tk}]"] = obs_dict_year[f"{year}[{tk}]"]
+            bound_pop[f"{year}[{tk}]"] = obs_dict_year[f"{year}[{tk}]"]
 
         col = f"{year}[{tks[1]}] - {year}[{tks[0]}]"
-        bound_lv2[col] = (
-            (bound_lv2[f"{year}[{tks[1]}]"] - bound_lv2[f"{year}[{tks[0]}]"])
+        bound_pop[col] = (
+            (bound_pop[f"{year}[{tks[1]}]"] - bound_pop[f"{year}[{tks[0]}]"])
             * 100
-            / bound_lv2[f"{year}[{tks[0]}]"]
+            / bound_pop[f"{year}[{tks[0]}]"]
         )
-        mean_std_dict[f"mean_{col}"] = np.mean(bound_lv2[col].values)
-        mean_std_dict[f"std_{col}"] = np.nanstd(bound_lv2[col].values)
+        mean_std_dict[f"mean_{col}"] = np.mean(bound_pop[col].values)
+        mean_std_dict[f"std_{col}"] = np.nanstd(bound_pop[col].values)
         # Plot
         ax = self_ax[i][j] if nrows > 1 else self_ax[j]
         bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
-        norm_val = 20
+        norm_val = 15
         g = sns.scatterplot(
-            data=bound_lv2,
-            x=bound_lv2.centroid.x,
-            y=bound_lv2.centroid.y,
+            data=bound_pop,
+            x=bound_pop.centroid.x,
+            y=bound_pop.centroid.y,
             hue=col,
             hue_norm=(-1 * norm_val, norm_val),
             size="Population",
@@ -1155,19 +1148,19 @@ def plot_obs_bubble(event="war"):
         for j, tk in enumerate(tks[:2]):
 
             col = f"{year_target}[{tk}] - {year_src}[{tk}]"
-            bound_lv2[col] = (
-                (bound_lv2[f"{year_target}[{tk}]"] - bound_lv2[f"{year_src}[{tk}]"])
+            bound_pop[col] = (
+                (bound_pop[f"{year_target}[{tk}]"] - bound_pop[f"{year_src}[{tk}]"])
                 * 100
-                / bound_lv2[f"{year_src}[{tk}]"]
+                / bound_pop[f"{year_src}[{tk}]"]
             )
-            mean_std_dict[f"mean_{col}"] = np.mean(bound_lv2[col].values)
-            mean_std_dict[f"std_{col}"] = np.nanstd(bound_lv2[col].values)
+            mean_std_dict[f"mean_{col}"] = np.mean(bound_pop[col].values)
+            mean_std_dict[f"std_{col}"] = np.nanstd(bound_pop[col].values)
             ax = inter_ax[i][j] if nrows > 1 else inter_ax[j]
             bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
             g = sns.scatterplot(
-                data=bound_lv2,
-                x=bound_lv2.centroid.x,
-                y=bound_lv2.centroid.y,
+                data=bound_pop,
+                x=bound_pop.centroid.x,
+                y=bound_pop.centroid.y,
                 hue=col,
                 hue_norm=(-1 * norm_val, norm_val),
                 size="Population",
@@ -1206,7 +1199,7 @@ def plot_obs_bubble(event="war"):
     )
     plt.suptitle(rf'OBS "year-to-year" change estimates (Major cities)', fontsize=18)
 
-    return bound_lv2, mean_std_dict
+    return bound_pop, mean_std_dict
 
 
 def plot_obs_change_adm2():
@@ -1632,8 +1625,8 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
                 ax=ax[i][0],
                 legend=legend,
                 cmap=CMAP_NO2,
-                vmin=-40,
-                vmax=40,
+                vmin=-20,
+                vmax=20,
                 legend_kwds={
                     "label": r"NO$_{2}$ col. change (%)",
                     "orientation": "horizontal",
@@ -1671,7 +1664,9 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
                 },
             )
 
-            event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > 10]
+            event_bound = conflict_df.loc[
+                conflict_df[f"conflict_{tk}"] > THRESHOLD_CONFLICT_POINT
+            ]
             event_bound.plot(
                 ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
             )
@@ -1805,10 +1800,10 @@ def plot_conflict_war_adm2():
     )
 
 
-def plot_wind_rose(ds, year_src, event="border"):
+def plot_wind_rose(ds, year_src):
 
-    border_df = get_boundary_cities()
-    conflict_df = get_monthly_conflict()
+    # border_df = get_boundary_cities()
+    # conflict_df = get_monthly_conflict()
     adm2_col = "ADM2_EN"
     wind_var = "wind"
     u10_var = "u10"
@@ -1830,29 +1825,29 @@ def plot_wind_rose(ds, year_src, event="border"):
         ed = np.datetime64(f"{year_src}-{t['em']}-{t['ed']}{HOUR_STR}")
         july_wind_ds = ds.era5.sel(time=slice(sd, ed))[[wind_var, u10_var, v10_var]]
 
-        threshold_point = 2 if i == 0 else THRESHOLD_CONFLICT_POINT
-        event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > threshold_point]
+        # threshold_point = 2 if i == 0 else THRESHOLD_CONFLICT_POINT
+        # event_bound = conflict_df.loc[conflict_df[f"conflict_{tk}"] > threshold_point]
 
-        if event == "border":
-            event_bound = border_df
+        # if event == "border":
+        #     event_bound = border_df
 
         wind_flat = []
         u10_flat = []
         v10_flat = []
-        for adm2 in event_bound[adm2_col].values:
-            geometry = event_bound.loc[event_bound[adm2_col] == adm2].geometry
+        # for adm2 in event_bound[adm2_col].values:
+        #     geometry = event_bound.loc[event_bound[adm2_col] == adm2].geometry
 
-            clip_ds = july_wind_ds.rio.clip(geometry, event_bound.crs)
+        #     clip_ds = july_wind_ds.rio.clip(geometry, event_bound.crs)
 
-            wind_flat = np.concatenate(
-                (wind_flat, clip_ds[wind_var].values.reshape(-1)), axis=None
-            )
-            u10_flat = np.concatenate(
-                (u10_flat, clip_ds[u10_var].values.reshape(-1)), axis=None
-            )
-            v10_flat = np.concatenate(
-                (v10_flat, clip_ds[v10_var].values.reshape(-1)), axis=None
-            )
+        wind_flat = np.concatenate(
+            (wind_flat, july_wind_ds[wind_var].values.reshape(-1)), axis=None
+        )
+        u10_flat = np.concatenate(
+            (u10_flat, july_wind_ds[u10_var].values.reshape(-1)), axis=None
+        )
+        v10_flat = np.concatenate(
+            (v10_flat, july_wind_ds[v10_var].values.reshape(-1)), axis=None
+        )
 
         wind_flat = wind_flat[~np.isnan(wind_flat)]
         u10_flat = u10_flat[~np.isnan(u10_flat)]
@@ -1878,3 +1873,6 @@ def plot_wind_rose(ds, year_src, event="border"):
         ax.set_title(f"{tk}")
 
     return wind_d, wind_flat
+
+
+# %%

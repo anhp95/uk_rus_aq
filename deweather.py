@@ -5,12 +5,15 @@ import random
 import numpy as np
 import pickle
 import os
+import math
+import lightgbm as lgbm
 
 from scipy.stats import linregress
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
+
 
 from mypath import *
 from const import *
@@ -48,18 +51,19 @@ class Dataset(object):
         self.de_weather_model_pred = None
 
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
+        # self.cal_rh()
         self.extract_list_geo()
 
         # self.extract_train_test_lonlat()
         # self.extract_train_test()
 
-        # self.params_search()
+        self.params_search()
         # self.train_de_weather_model(10)
 
-        self.build_deweather_pred()
-        self.to_df()
-        self.prep_oh()
-        self.de_weather()
+        # self.build_deweather_pred()
+        # self.to_df()
+        # self.prep_oh()
+        # self.de_weather()
 
     def load_data(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc):
 
@@ -77,6 +81,18 @@ class Dataset(object):
         pop = xr.open_dataset(pop_nc)
         self.pop = pop.rename(name_dict={list(pop.keys())[0]: "pop"})
         self.pop = self.pop.isel(band=0)
+
+    # def cal_rh(self):
+    #     beta = 17.625
+    #     lamda = 243.04
+    #     e = math.e
+
+    #     dp = self.era5["d2m"] - 272.15
+    #     t = self.era5["t2m"] - 272.15
+
+    #     self.era5["rh"] = 100 * (
+    #         (e ** ((beta * dp) / (lamda + dp))) / (e ** ((beta * t) / (lamda + t)))
+    #     )
 
     def extract_list_geo(self):
 
@@ -143,14 +159,14 @@ class Dataset(object):
             columns=["band", "spatial_ref"]
         )
 
-        feb29 = np.datetime64(f"2020-02-29T00:00:00.000000000")
-        org_data = org_data[org_data["time"] != feb29]
+        # feb29 = np.datetime64(f"2020-02-29T00:00:00.000000000")
+        # org_data = org_data[org_data["time"] != feb29]
 
-        cols = ["dow", "doy", "lat", "lon"]
-        oh_data = pd.get_dummies(org_data, columns=cols)
-        return org_data, oh_data
+        # cols = ["dow", "doy", "lat", "lon"]
+        # oh_data = pd.get_dummies(org_data, columns=cols)
+        # return org_data, oh_data
 
-        # return org_data
+        return org_data
 
     def extract_train_test(self):
 
@@ -170,11 +186,21 @@ class Dataset(object):
         return X_train, y_train, X_test, y_test
 
     def params_search(self):
-        tunned_parameters = RANDOM_GRID
+        tunned_parameters = LGBM_GRID
+        model = lgbm.LGBMRegressor(categorical_feature=[8, 9, 10, 11])
         grid_search = GridSearchCV(
-            RandomForestRegressor(), tunned_parameters, scoring="r2", cv=5, n_jobs=-1
+            model, tunned_parameters, scoring="r2", cv=5, n_jobs=-1
         )
-        data_2019 = self.reform_data(2019, self.list_geo).dropna()
+        data_2019 = self.reform_data(2019, self.list_geo)
+        data_2019 = data_2019.dropna()
+
+        # norm
+        # for col in NONE_OH_COLS:
+        #     min = data_2019[col].min()
+        #     max = data_2019[col].max()
+        #     print(col, min, max)
+        #     data_2019[col] = (data_2019[col] - min) / (max - min)
+
         X = data_2019.drop(columns=[S5P_OBS_COL, "time"]).values
         y = data_2019[S5P_OBS_COL].values
         grid_search.fit(X, y)
@@ -265,18 +291,18 @@ class Dataset(object):
         if not os.path.exists(self.de_weather_model_pred_path):
 
             # old model
-            self.de_weather_model_pred = RandomForestRegressor(
-                n_estimators=400, min_samples_leaf=7, n_jobs=-1
-            )
-
-            _, train = self.reform_data(2019, self.list_geo)
-            # train = self.reform_data(2019, self.list_geo)
+            # self.de_weather_model_pred = RandomForestRegressor(
+            #     n_estimators=800, min_samples_leaf=10, n_jobs=-1
+            # )
+            self.de_weather_model_pred = lgbm.LGBMRegressor()
+            train = self.reform_data(2019, self.list_geo)
             train = train.dropna()
 
             # norm
             # for col in NONE_OH_COLS:
             #     min = train[col].min()
             #     max = train[col].max()
+            #     print(col, min, max)
             #     train[col] = (train[col] - min) / (max - min)
 
             X_train = train.drop(columns=[S5P_OBS_COL, "time"]).values
@@ -293,31 +319,26 @@ class Dataset(object):
 
     def to_df(self):
 
-        # norm
         self.df_2019, self.oh_2019 = self.reform_data(2019, self.list_geo)
         self.df_2020, self.oh_2020 = self.reform_data(2020, self.list_geo)
         self.df_2021, self.oh_2021 = self.reform_data(2021, self.list_geo)
         self.df_2022, self.oh_2022 = self.reform_data(2022, self.list_geo)
 
-        # self.df_2019 = self.reform_data(2019, self.list_geo).fillna(0)
-        # self.df_2020 = self.reform_data(2020, self.list_geo).fillna(0)
-        # self.df_2021 = self.reform_data(2021, self.list_geo).fillna(0)
-        # self.df_2022 = self.reform_data(2022, self.list_geo).fillna(0)
+    # def prep_oh(self):
+    #     self.oh_2019 = self.oh_2019.fillna(0)
+    #     self.oh_2020 = self.oh_2020.fillna(0)
+    #     self.oh_2021 = self.oh_2021.fillna(0)
+    #     self.oh_2022 = self.oh_2022.fillna(0)
 
-    def prep_oh(self):
-        self.oh_2019 = self.oh_2019.fillna(0)
-        self.oh_2020 = self.oh_2020.fillna(0)
-        self.oh_2021 = self.oh_2021.fillna(0)
-        self.oh_2022 = self.oh_2022.fillna(0)
+    #     for col in NONE_OH_COLS:
+    #         max = self.df_2019[col].max()
+    #         min = self.df_2019[col].min()
+    #         print(col, min, max)
 
-        for col in NONE_OH_COLS:
-            max = self.df_2019[col].max()
-            min = self.df_2019[col].min()
-
-            self.oh_2019[col] = (self.oh_2019[col] - min) / (max - min)
-            self.oh_2020[col] = (self.oh_2020[col] - min) / (max - min)
-            self.oh_2021[col] = (self.oh_2021[col] - min) / (max - min)
-            self.oh_2022[col] = (self.oh_2022[col] - min) / (max - min)
+    #         self.oh_2019[col] = (self.oh_2019[col] - min) / (max - min)
+    #         self.oh_2020[col] = (self.oh_2020[col] - min) / (max - min)
+    #         self.oh_2021[col] = (self.oh_2021[col] - min) / (max - min)
+    #         self.oh_2022[col] = (self.oh_2022[col] - min) / (max - min)
 
     def de_weather(self):
 
@@ -370,11 +391,17 @@ class Dataset(object):
         self.dw_2020 = self.df_2020.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2021 = self.df_2021.set_index(["time", "lat", "lon"]).to_xarray()
         self.dw_2022 = self.df_2022.set_index(["time", "lat", "lon"]).to_xarray()
+
+
 # if __name__ == "__main__":
 #     ds = Dataset(CAM_REALS_NO2_NC, CAM_FC_NO2_NC, ERA5_NC, S5P_NO2_NC, POP_NC)
-# plot_pred_true(ds)
-# plot_obs_bau_adm2_map(ds, 2022)
-# plot_obs_bau_adm2_map(ds, 2021)
-# plot_obs_bau_adm2_map(ds, 2020)
+
+
+# plot_ppl_obs_bau_line_mlt(ds)
+# plot_obs_bau_pop_line_mlt(ds)
+# plot_obs_bau_bubble(ds, year)
+# plot_obs_bubble("covid")
+# plot_weather_params(ds, event="covid")
+# plot_obs_bau_adm2(ds, 2022, "2_no2_bau")
 
 # %%
