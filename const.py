@@ -15,7 +15,7 @@ PERIOD_DICT = {
         "02/24_02/28": {"sd": "15", "sm": "02", "ed": "08", "em": "03"},
         # "Feb 24-28": {"sd": "01", "sm": "02", "ed": "01", "em": "03"},
         "March": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
-        "April": {"sd": "01", "sm": "04", "ed": "30", "em": "04"},
+        "April": {"sd": "01", "sm": "04", "ed": "01", "em": "05"},
         "May": {"sd": "01", "sm": "05", "ed": "01", "em": "06"},
         "June": {"sd": "01", "sm": "06", "ed": "01", "em": "07"},
         "July": {"sd": "01", "sm": "07", "ed": "01", "em": "08"},
@@ -90,18 +90,20 @@ RANDOM_GRID = {
     "n_estimators": [200, 400, 600, 800],
 }
 
-LGBM_GRID = {
-    "task": ["train"],
-    "boosting": ["gbdt"],
-    "objective": ["root_mean_squared_error"],
-    "num_iterations": [1500, 2000, 5000],
-    "learning_rate": [0.05, 0.005],
-    "num_leaves": [7, 15, 31],
-    "max_depth": [10, 15, 25],
-    "min_data_in_leaf": [15, 25],
-    "feature_fraction": [0.6, 0.8, 0.9],
-    "bagging_fraction": [0.6, 0.8],
-    "bagging_freq": [100, 200, 400],
+LGBM_HYP_PARAMS = {
+    "task": "train",
+    "boosting_type": "gbdt",
+    # "objective": "r2",
+    # "categorical_feature": [8, 9, 10, 11],
+    "device": "gpu",
+    "learning_rate": 0.2878718717131533,
+    "max_bin": 63,
+    "min_child_samples": 17,
+    "n_estimators": 1423,
+    "num_leaves": 158,
+    "reg_alpha": 0.0009765625,
+    "reg_lambda": 0.002163471696790266,
+    "verbose": -1,
 }
 
 NO2_UNIT = f"$10^{{{-6}}}$ $mol/m^2$"

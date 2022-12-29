@@ -612,12 +612,12 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
 
     coal_gdf = gpd.read_file(UK_COAL_SHP)
     coal_gdf.crs = "EPSG:4326"
-    # coal_gdf["buffer"] = coal_gdf.geometry.buffer(0, cap_style=3)
+    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.2, cap_style=3)
 
     for i, ppl_name in enumerate(coal_gdf.name.values):
 
-        # geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
-        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
+        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
+        # geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
         fig, ax = plt.subplots(1, 4, figsize=(20, 4))
 
         plot_ax_line(
@@ -869,7 +869,7 @@ def plot_weather_params(ds, event="covid"):
     var_label_dict = {
         "wind": "Wind speed (m/s)",
         "blh": "Boundary layer height (m)",
-        "t2m": "Temperature (K)",
+        "z": "Geopotential (m\u00b2/s\u00b22)",
     }
     # x_range_dict = {"wind": [2, 4.5], "blh": [400, 900], "t2m": [275, 285]}
     list_var = list(var_label_dict.keys())

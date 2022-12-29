@@ -13,12 +13,20 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
-
+from flaml.model import LGBMEstimator
+from flaml import AutoML
+from flaml.default import LGBMRegressor
+from flaml import tune
 
 from mypath import *
 from const import *
 from utils import *
 from fig_plt import *
+
+
+class GPULGBM(LGBMEstimator):
+    def __init__(self, **config):
+        super().__init__(device="gpu", categorical_feature=[8, 9, 10, 11], **config)
 
 
 class Dataset(object):
@@ -57,13 +65,12 @@ class Dataset(object):
         # self.extract_train_test_lonlat()
         # self.extract_train_test()
 
-        self.params_search()
-        # self.train_de_weather_model(10)
+        # self.params_search()
+        # self.train_de_weather_model()
 
-        # self.build_deweather_pred()
-        # self.to_df()
-        # self.prep_oh()
-        # self.de_weather()
+        self.build_deweather_pred()
+        self.to_df()
+        self.de_weather()
 
     def load_data(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc):
 
@@ -186,106 +193,95 @@ class Dataset(object):
         return X_train, y_train, X_test, y_test
 
     def params_search(self):
-        tunned_parameters = LGBM_GRID
-        model = lgbm.LGBMRegressor(categorical_feature=[8, 9, 10, 11])
-        grid_search = GridSearchCV(
-            model, tunned_parameters, scoring="r2", cv=5, n_jobs=-1
-        )
+        tunned_parameters = LGBM_HYP_PARAMS
+        # self.auto_model = flaml.default.LGBMRegressor(
+        #     categorical_feature=[8, 9, 10, 11], device="gpu"
+        # )
+
+        automl = AutoML()
+        settings = {
+            "time_budget": 60 * 30,  # total running time in seconds
+            "metric": "r2",  # primary metrics for regression can be chosen from: ['mae','mse','r2']
+            # "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
+            "task": "regression",  # task type
+            # "log_file_name": "houses_experiment.log",  # flaml log file
+            "seed": 7654321,  # random seed
+            "custom_hp": {
+                "gpu_lgbm": {
+                    "log_max_bin": {
+                        "domain": tune.lograndint(lower=3, upper=7),
+                        "init_value": 5,
+                    },
+                }
+            },
+        }
+        automl.add_learner(learner_name="gpu_lgbm", learner_class=GPULGBM)
+        settings["estimator_list"] = ["gpu_lgbm"]  # change the estimator list
+
         data_2019 = self.reform_data(2019, self.list_geo)
         data_2019 = data_2019.dropna()
 
-        # norm
-        # for col in NONE_OH_COLS:
-        #     min = data_2019[col].min()
-        #     max = data_2019[col].max()
-        #     print(col, min, max)
-        #     data_2019[col] = (data_2019[col] - min) / (max - min)
+        X = data_2019.drop(columns=[S5P_OBS_COL, "time"])
+        y = data_2019[S5P_OBS_COL]
 
-        X = data_2019.drop(columns=[S5P_OBS_COL, "time"]).values
-        y = data_2019[S5P_OBS_COL].values
-        grid_search.fit(X, y)
-        self.best_params = grid_search.best_params_
+        #
+        automl.fit(X_train=X, y_train=y, **settings)
+        print("Best hyperparmeter config:", automl.best_config)
+        print("Best r2 on validation data: {0:.4g}".format(1 - automl.best_loss))
+        print(
+            "Training duration of best run: {0:.4g} s".format(
+                automl.best_config_train_time
+            )
+        )
+        print(automl.model.estimator)
+        plt.barh(automl.feature_names_in_, automl.feature_importances_)
+        self.auto_model = automl
+        # self.best_params = self.auto_model.best_config
 
-    def train_de_weather_model(self, n_test):
+        # print(self.best_params)
+        # plt.barh(
+        #     self.auto_model.feature_names_in_, self.auto_model.feature_importances_
+        # )
+
+    def train_de_weather_model(self):
         if not os.path.exists(self.train_geo_path) and not os.path.exists(
             self.test_geo_path
         ):
-            r2_best = 0
-            pfm_dict = {}
-            pfm_dict["r2_score"] = []
-            pfm_dict["mse_score"] = []
-            pfm_dict["type"] = []
-            for n in range(n_test):
-                print(f"n-test:{n}")
-                self.extract_train_test_lonlat()
-                self.extract_train_test()
 
-                X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
+            self.extract_train_test_lonlat()
+            self.extract_train_test()
 
-                self.de_weather_model_train = RandomForestRegressor(
-                    n_estimators=400, min_samples_leaf=7, n_jobs=-1
-                )
-                self.de_weather_model_train = self.de_weather_model_train.fit(
-                    X_train, y_train
-                )
+            X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
 
-                y_pred = self.de_weather_model_train.predict(X_test)
-                y_pred_train = self.de_weather_model_train.predict(X_train)
+            # self.de_weather_model_train = RandomForestRegressor(
+            #     n_estimators=400, min_samples_leaf=7, n_jobs=-1
+            # )
+            model = lgbm.LGBMRegressor(**LGBM_HYP_PARAMS)
+            self.de_weather_model_train = model.fit(
+                X_train,
+                y_train,
+            )
 
-                mse_test = mean_squared_error(y_test, y_pred)
-                mse_train = mean_squared_error(y_train, y_pred_train)
+            y_pred = self.de_weather_model_train.predict(X_test)
+            y_pred_train = self.de_weather_model_train.predict(X_train)
 
-                r2_test = r2_score(y_test, y_pred)
-                r2_train = r2_score(y_train, y_pred_train)
+            mse_test = mean_squared_error(y_test, y_pred)
+            mse_train = mean_squared_error(y_train, y_pred_train)
 
-                pfm_dict["r2_score"].append(r2_test)
-                pfm_dict["mse_score"].append(mse_test)
-                pfm_dict["type"].append("test")
+            r2_test = r2_score(y_test, y_pred)
+            r2_train = r2_score(y_train, y_pred_train)
 
-                pfm_dict["r2_score"].append(r2_train)
-                pfm_dict["mse_score"].append(mse_train)
-                pfm_dict["type"].append("train")
+            print(f"mean_squared_error test: {mse_test}")
+            print(f"mean_squared_error train: {mse_train}")
 
-                if r2_test > r2_best:
-                    r2_best = r2_test
+            print(f"r2 score test: {r2_test}")
+            print(f"r2 score train: {r2_train}")
 
-                    pickle.dump(
-                        self.de_weather_model_train,
-                        open(self.de_weather_model_train_path, "wb"),
-                    )
-                    pickle.dump(self.train_geo, open(self.train_geo_path, "wb"))
-                    pickle.dump(self.test_geo, open(self.test_geo_path, "wb"))
-            pfm_df = pd.DataFrame.from_dict(pfm_dict)
-            sns.violinplot(data=pfm_df, x="type", y="r2_score")
-            pfm_df.to_csv(self.pfm_path)
+            print("-------test pcc ---------")
+            print(linregress(y_pred, y_test))
 
-        self.train_geo = pickle.load(open(self.train_geo_path, "rb"))
-        self.test_geo = pickle.load(open(self.test_geo_path, "rb"))
-        self.de_weather_model_train = pickle.load(
-            open(self.de_weather_model_train_path, "rb")
-        )
-
-        self.extract_train_test()
-        X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
-        y_pred = self.de_weather_model_train.predict(X_test)
-        y_pred_train = self.de_weather_model_train.predict(X_train)
-
-        print(f"mean_squared_error test: {mean_squared_error(y_test, y_pred)}")
-        print(f"mean_squared_error train: {mean_squared_error(y_train, y_pred_train)}")
-
-        print(f"r2 score test: {r2_score(y_test, y_pred)}")
-        print(f"r2 score train: {r2_score(y_train, y_pred_train)}")
-
-        print("-------test pcc ---------")
-        print(linregress(y_pred, y_test))
-
-        print("-------train pcc-----------")
-        print(linregress(y_pred_train, y_train))
-
-        # plot
-        self.test_2019[S5P_PRED_COL] = y_pred
-
-        return y_pred, y_test, y_pred_train, y_train
+            print("-------train pcc-----------")
+            print(linregress(y_pred_train, y_train))
 
     def build_deweather_pred(self):
         if not os.path.exists(self.de_weather_model_pred_path):
@@ -294,35 +290,30 @@ class Dataset(object):
             # self.de_weather_model_pred = RandomForestRegressor(
             #     n_estimators=800, min_samples_leaf=10, n_jobs=-1
             # )
-            self.de_weather_model_pred = lgbm.LGBMRegressor()
+            model = lgbm.LGBMRegressor(**LGBM_HYP_PARAMS)
+            self.de_weather_model_pred = model
             train = self.reform_data(2019, self.list_geo)
             train = train.dropna()
 
-            # norm
-            # for col in NONE_OH_COLS:
-            #     min = train[col].min()
-            #     max = train[col].max()
-            #     print(col, min, max)
-            #     train[col] = (train[col] - min) / (max - min)
-
-            X_train = train.drop(columns=[S5P_OBS_COL, "time"]).values
-            y_train = train[S5P_OBS_COL].values
+            X_train = train.drop(columns=[S5P_OBS_COL, "time"])
+            y_train = train[S5P_OBS_COL]
             self.de_weather_model_pred = self.de_weather_model_pred.fit(
                 X_train, y_train
             )
-            pickle.dump(
-                self.de_weather_model_pred, open(self.de_weather_model_pred_path, "wb")
-            )
-        self.de_weather_model_pred = pickle.load(
-            open(self.de_weather_model_pred_path, "rb")
-        )
+            # pickle.dump(
+            #     self.de_weather_model_pred, open(self.de_weather_model_pred_path, "wb")
+            # )
+            return
+        # self.de_weather_model_pred = pickle.load(
+        #     open(self.de_weather_model_pred_path, "rb")
+        # )
 
     def to_df(self):
 
-        self.df_2019, self.oh_2019 = self.reform_data(2019, self.list_geo)
-        self.df_2020, self.oh_2020 = self.reform_data(2020, self.list_geo)
-        self.df_2021, self.oh_2021 = self.reform_data(2021, self.list_geo)
-        self.df_2022, self.oh_2022 = self.reform_data(2022, self.list_geo)
+        self.df_2019 = self.reform_data(2019, self.list_geo)
+        self.df_2020 = self.reform_data(2020, self.list_geo)
+        self.df_2021 = self.reform_data(2021, self.list_geo)
+        self.df_2022 = self.reform_data(2022, self.list_geo)
 
     # def prep_oh(self):
     #     self.oh_2019 = self.oh_2019.fillna(0)
@@ -344,30 +335,17 @@ class Dataset(object):
 
         # norm
         s5p_2019_pred = self.de_weather_model_pred.predict(
-            self.oh_2019.drop(columns=[S5P_OBS_COL, "time"]).values
+            self.df_2019.drop(columns=[S5P_OBS_COL, "time"]).values
         )
         s5p_2020_pred = self.de_weather_model_pred.predict(
-            self.oh_2020.drop(columns=[S5P_OBS_COL, "time"]).values
+            self.df_2020.drop(columns=[S5P_OBS_COL, "time"]).values
         )
         s5p_2021_pred = self.de_weather_model_pred.predict(
-            self.oh_2021.drop(columns=[S5P_OBS_COL, "time"]).values
+            self.df_2021.drop(columns=[S5P_OBS_COL, "time"]).values
         )
         s5p_2022_pred = self.de_weather_model_pred.predict(
-            self.oh_2022.drop(columns=[S5P_OBS_COL, "time"]).values
+            self.df_2022.drop(columns=[S5P_OBS_COL, "time"]).values
         )
-
-        # s5p_2019_pred = self.de_weather_model_pred.predict(
-        #     self.df_2019.drop(columns=[S5P_OBS_COL, "time"]).values
-        # )
-        # s5p_2020_pred = self.de_weather_model_pred.predict(
-        #     self.df_2020.drop(columns=[S5P_OBS_COL, "time"]).values
-        # )
-        # s5p_2021_pred = self.de_weather_model_pred.predict(
-        #     self.df_2021.drop(columns=[S5P_OBS_COL, "time"]).values
-        # )
-        # s5p_2022_pred = self.de_weather_model_pred.predict(
-        #     self.df_2022.drop(columns=[S5P_OBS_COL, "time"]).values
-        # )
 
         self.df_2019[S5P_PRED_COL] = s5p_2019_pred
         self.df_2020[S5P_PRED_COL] = s5p_2020_pred
@@ -405,3 +383,18 @@ class Dataset(object):
 # plot_obs_bau_adm2(ds, 2022, "2_no2_bau")
 
 # %%
+# LGBMRegressor(categorical_feature=[8, 9, 10, 11], device='gpu',
+#               learning_rate=0.03517259015200922, max_bin=31,
+#               min_child_samples=4, n_estimators=32767, num_leaves=372,
+#               reg_alpha=0.02271142170225636, reg_lambda=0.001963791798843179,
+#               verbose=-1)
+
+# {'n_estimators': 445,
+# 'num_leaves': 398,
+# 'min_child_samples': 49,
+# 'learning_rate': 0.19693997225266072,
+# 'log_max_bin': 6,
+# 'colsample_bytree': 1.0,
+# 'reg_alpha': 0.0010519522161444674,
+# 'reg_lambda': 0.007270906105523081,
+# 'FLAML_sample_size': 1181619}
