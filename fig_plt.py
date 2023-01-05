@@ -1843,7 +1843,7 @@ def plot_conflict_war_adm2():
     )
 
 
-def plot_wind_rose(ds, year_src):
+def plot_wind_rose(ds, year_src, event="covid"):
 
     # border_df = get_boundary_cities()
     # conflict_df = get_monthly_conflict()
@@ -1851,7 +1851,16 @@ def plot_wind_rose(ds, year_src):
     wind_var = "wind"
     u10_var = "u10"
     v10_var = "v10"
-    year_target = 2022
+
+    year_target = 2020 if event == "covid" else 2022
+    fig = (
+        plt.figure(figsize=(10, 5), constrained_layout=True)
+        if event == "covid"
+        else plt.figure(figsize=(15, 10), constrained_layout=True)
+    )
+
+    fig.suptitle(f"Wind speed and direction in {year_src}")
+
     bins = [i for i in range(0, 7)]
     # tk = "July"
 
@@ -1859,9 +1868,8 @@ def plot_wind_rose(ds, year_src):
     v10 = ds.era5[v10_var]
     ds.era5[wind_var] = np.sqrt(u10**2 + v10**2)
     sd_ed = PERIOD_DICT[year_target]
-    tks = list(sd_ed.keys())[1:]
-    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-    fig.suptitle(f"Wind speed and direction in {year_src}")
+    tks = list(sd_ed.keys())
+
     for i, tk in enumerate(tks):
         t = sd_ed[tk]
         sd = np.datetime64(f"{year_src}-{t['sm']}-{t['sd']}{HOUR_STR}")
@@ -1900,7 +1908,12 @@ def plot_wind_rose(ds, year_src):
         v10_flat = units.Quantity(v10_flat, "m/s")
 
         wind_d = mpcalc.wind_direction(u10_flat, v10_flat)
-        ax = fig.add_subplot(2, 3, i + 1, projection="windrose")
+        ax = ax = (
+            fig.add_subplot(1, 2, i + 1, projection="windrose")
+            if event == "covid"
+            else fig.add_subplot(2, 3, i + 1, projection="windrose")
+        )
+
         # ax_w = WindroseAxes.from_ax(ax[i])
         ax.contourf(
             wind_d.magnitude,
