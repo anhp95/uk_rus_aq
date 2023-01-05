@@ -26,7 +26,7 @@ from fig_plt import *
 
 class GPULGBM(LGBMEstimator):
     def __init__(self, **config):
-        super().__init__(device="gpu", categorical_feature=[8, 9, 10, 11], **config)
+        super().__init__(device="gpu", **config)
 
 
 class Dataset(object):
@@ -59,7 +59,7 @@ class Dataset(object):
         self.de_weather_model_pred = None
 
         self.load_data(cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc)
-        # self.cal_rh()
+        self.cal_rh()
         self.extract_list_geo()
 
         # self.extract_train_test_lonlat()
@@ -89,17 +89,17 @@ class Dataset(object):
         self.pop = pop.rename(name_dict={list(pop.keys())[0]: "pop"})
         self.pop = self.pop.isel(band=0)
 
-    # def cal_rh(self):
-    #     beta = 17.625
-    #     lamda = 243.04
-    #     e = math.e
+    def cal_rh(self):
+        beta = 17.625
+        lamda = 243.04
+        e = math.e
 
-    #     dp = self.era5["d2m"] - 272.15
-    #     t = self.era5["t2m"] - 272.15
+        dp = self.era5["d2m"] - 272.15
+        t = self.era5["t2m"] - 272.15
 
-    #     self.era5["rh"] = 100 * (
-    #         (e ** ((beta * dp) / (lamda + dp))) / (e ** ((beta * t) / (lamda + t)))
-    #     )
+        self.era5["relative humidity"] = 100 * (
+            (e ** ((beta * dp) / (lamda + dp))) / (e ** ((beta * t) / (lamda + t)))
+        )
 
     def extract_list_geo(self):
 
@@ -200,7 +200,7 @@ class Dataset(object):
 
         automl = AutoML()
         settings = {
-            "time_budget": 60 * 30,  # total running time in seconds
+            "time_budget": 60 * 360,  # total running time in seconds
             "metric": "r2",  # primary metrics for regression can be chosen from: ['mae','mse','r2']
             # "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
             "task": "regression",  # task type
