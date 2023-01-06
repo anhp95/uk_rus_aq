@@ -73,5 +73,3 @@ DE_WEATHER_MODEL_PRED = os.path.join(DE_WEATHER_DIR, "model_pred.sav")
 TRAIN_GEO = os.path.join(DE_WEATHER_DIR, "train_geo.pkl")
 TEST_GEO = os.path.join(DE_WEATHER_DIR, "test_geo.pkl")
 PFM_PATH = os.path.join(DE_WEATHER_DIR, "pfm.csv")
-
-# %%

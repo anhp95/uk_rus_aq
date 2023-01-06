@@ -66,7 +66,7 @@ class Dataset(object):
         # self.extract_train_test()
 
         # self.params_search()
-        # self.train_de_weather_model()
+        self.train_de_weather_model()
 
         self.build_deweather_pred()
         self.to_df()
@@ -244,44 +244,47 @@ class Dataset(object):
         # )
 
     def train_de_weather_model(self):
-        if not os.path.exists(self.train_geo_path) and not os.path.exists(
-            self.test_geo_path
-        ):
+        # if not os.path.exists(self.train_geo_path) and not os.path.exists(
+        #     self.test_geo_path
+        # ):
 
-            self.extract_train_test_lonlat()
-            self.extract_train_test()
+        self.extract_train_test_lonlat()
+        self.extract_train_test()
 
-            X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
+        X_train, y_train, X_test, y_test = self.extract_Xy_train_test()
 
-            # self.de_weather_model_train = RandomForestRegressor(
-            #     n_estimators=400, min_samples_leaf=7, n_jobs=-1
-            # )
-            model = lgbm.LGBMRegressor(**LGBM_HYP_PARAMS)
-            self.de_weather_model_train = model.fit(
-                X_train,
-                y_train,
-            )
+        # self.de_weather_model_train = RandomForestRegressor(
+        #     n_estimators=400, min_samples_leaf=7, n_jobs=-1
+        # )
+        model = lgbm.LGBMRegressor(**LGBM_HYP_PARAMS)
+        self.de_weather_model_train = model.fit(
+            X_train,
+            y_train,
+        )
 
-            y_pred = self.de_weather_model_train.predict(X_test)
-            y_pred_train = self.de_weather_model_train.predict(X_train)
+        y_pred = self.de_weather_model_train.predict(X_test)
+        y_pred_train = self.de_weather_model_train.predict(X_train)
 
-            mse_test = mean_squared_error(y_test, y_pred)
-            mse_train = mean_squared_error(y_train, y_pred_train)
+        self.test_2019[S5P_PRED_COL] = y_pred
+        self.train_2019[S5P_PRED_COL] = y_pred_train
 
-            r2_test = r2_score(y_test, y_pred)
-            r2_train = r2_score(y_train, y_pred_train)
+        mse_test = mean_squared_error(y_test, y_pred)
+        mse_train = mean_squared_error(y_train, y_pred_train)
 
-            print(f"mean_squared_error test: {mse_test}")
-            print(f"mean_squared_error train: {mse_train}")
+        r2_test = r2_score(y_test, y_pred)
+        r2_train = r2_score(y_train, y_pred_train)
 
-            print(f"r2 score test: {r2_test}")
-            print(f"r2 score train: {r2_train}")
+        print(f"mean_squared_error test: {mse_test}")
+        print(f"mean_squared_error train: {mse_train}")
 
-            print("-------test pcc ---------")
-            print(linregress(y_pred, y_test))
+        print(f"r2 score test: {r2_test}")
+        print(f"r2 score train: {r2_train}")
 
-            print("-------train pcc-----------")
-            print(linregress(y_pred_train, y_train))
+        print("-------test pcc ---------")
+        print(linregress(y_pred, y_test))
+
+        print("-------train pcc-----------")
+        print(linregress(y_pred_train, y_train))
 
     def build_deweather_pred(self):
         if not os.path.exists(self.de_weather_model_pred_path):

@@ -756,7 +756,7 @@ def plot_obs_bau_pop_line_mlt(org_ds, event="covid"):
         bbox_to_anchor=(0.5, -0.01),
         fontsize=40,
     )
-    return pd.DataFrame.from_dict(table_dict)
+    return pd.DataFrame.from_dict(table_dict).round(1)
 
 
 def plot_obs_bau_pop_line_sgl(org_ds, year):
@@ -1853,22 +1853,25 @@ def plot_wind_rose(ds, year_src, event="covid"):
     v10_var = "v10"
 
     year_target = 2020 if event == "covid" else 2022
-    fig = (
-        plt.figure(figsize=(10, 5), constrained_layout=True)
-        if event == "covid"
-        else plt.figure(figsize=(15, 10), constrained_layout=True)
-    )
-
-    fig.suptitle(f"Wind speed and direction in {year_src}")
+    # fig = (
+    #     plt.figure(figsize=(10, 5), constrained_layout=True)
+    #     if event == "covid"
+    #     else plt.figure(figsize=(15, 10), constrained_layout=True)
+    # )
 
     bins = [i for i in range(0, 7)]
-    # tk = "July"
 
     u10 = ds.era5[u10_var]
     v10 = ds.era5[v10_var]
     ds.era5[wind_var] = np.sqrt(u10**2 + v10**2)
     sd_ed = PERIOD_DICT[year_target]
     tks = list(sd_ed.keys())
+    
+    ncols = 2
+    nrows = int(len(tks)/2)
+
+    fig = plt.figure(figsize=(ncols * 5, nrows*5), constrained_layout=True)
+    fig.suptitle(f"Wind speed and direction in {year_src}")
 
     for i, tk in enumerate(tks):
         t = sd_ed[tk]
@@ -1908,11 +1911,12 @@ def plot_wind_rose(ds, year_src, event="covid"):
         v10_flat = units.Quantity(v10_flat, "m/s")
 
         wind_d = mpcalc.wind_direction(u10_flat, v10_flat)
-        ax = ax = (
-            fig.add_subplot(1, 2, i + 1, projection="windrose")
-            if event == "covid"
-            else fig.add_subplot(2, 3, i + 1, projection="windrose")
-        )
+        # ax = (
+        #     fig.add_subplot(1, 2, i + 1, projection="windrose")
+        #     if event == "covid"
+        #     else fig.add_subplot(2, 3, i + 1, projection="windrose")
+        # )
+        ax = fig.add_subplot(nrows, ncols, i+1, projection="windrose")
 
         # ax_w = WindroseAxes.from_ax(ax[i])
         ax.contourf(
