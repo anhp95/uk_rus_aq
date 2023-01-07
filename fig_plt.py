@@ -520,9 +520,9 @@ def plot_ax_line(
     ed_cv19 = np.datetime64(f"{year}-05-08T00:00:00.000000000")
     if event == "war":
         sd_cv19 = np.datetime64(f"{year}-02-25T00:00:00.000000000")
-        ed_cv19 = np.datetime64(f"{year}-03-23T00:00:00.000000000")
+        ed_cv19 = np.datetime64(f"{year}-03-26T00:00:00.000000000")
         if year == 2020:
-            ed_cv19 = np.datetime64(f"{year}-03-22T00:00:00.000000000")
+            ed_cv19 = np.datetime64(f"{year}-03-25T00:00:00.000000000")
     ds_clip_covid = ds_clip.sel(time=slice(sd_cv19, ed_cv19)).mean(dim=["lat", "lon"])
     obs_bau = (
         (ds_clip_covid[S5P_OBS_COL] - ds_clip_covid[S5P_PRED_COL])
@@ -1078,7 +1078,7 @@ def plot_obs_bau_bubble(org_ds, year):
     return geo_df
 
 
-def plot_obs_bubble(event="war"):
+def plot_obs_bubble(event="covid"):
 
     bound_lv1 = gpd.read_file(UK_SHP_ADM1)
 
@@ -1129,8 +1129,8 @@ def plot_obs_bubble(event="war"):
             * 100
             / bound_pop[f"{year}[{tks[0]}]"]
         )
-        mean_std_dict[f"mean_{col}"] = np.mean(bound_pop[col].values)
-        mean_std_dict[f"std_{col}"] = np.nanstd(bound_pop[col].values)
+        mean_std_dict[f"mean_{col}"] = bound_pop[col].mean()
+        mean_std_dict[f"std_{col}"] = bound_pop[col].std()
         # Plot
         ax = self_ax[i][j] if nrows > 1 else self_ax[j]
         bound_lv1.plot(ax=ax, facecolor="white", edgecolor="black", lw=0.7)
