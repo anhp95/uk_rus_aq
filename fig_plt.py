@@ -1521,23 +1521,26 @@ def plot_obs_change_adm2():
     return bound_lv2
 
 
-def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
-    year_war = 2022
+def plot_obs_bau_adm2(org_ds):
+    year_event = 2022
+    year_bau = 2019
     border_df = get_boundary_cities()
     conflict_df = get_monthly_conflict()
     coal_gdf = gpd.read_file(UK_COAL_SHP)
-    # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
-    ds = prep_ds(org_ds, year_ref)
+
+    ds_war = prep_ds(org_ds, year_event)
+    ds_bau = prep_ds(org_ds, year_bau)
 
     conflict_ds = prep_conflict_df()
     fire_ds = prep_fire_df()
 
     bound_lv2 = gpd.read_file(UK_SHP_ADM2)
-    sd_ed = PERIOD_DICT[year_war]
+    sd_ed = PERIOD_DICT[year_event]
 
     adm_col = "ADM2_EN"
 
-    dict_no2_change = {}
+    dict_obs_bau = {}
+    dict_y2y = {}
     dict_conflict_change = {}
     dict_fire_change = {}
 
@@ -1546,131 +1549,97 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
     tks = list(sd_ed.keys())
     for tk in tks:
 
-        dict_no2_change[tk] = []
+        dict_obs_bau[tk] = []
+        dict_y2y[tk] = []
         dict_conflict_change[tk] = []
         dict_fire_change[tk] = []
 
         t = sd_ed[tk]
-        sd = np.datetime64(f"{year_ref}-{t['sm']}-{t['sd']}T00:00:00.000000000")
-        ed = np.datetime64(f"{year_ref}-{t['em']}-{t['ed']}T00:00:00.000000000")
+        sd_event = np.datetime64(f"{year_event}-{t['sm']}-{t['sd']}T00:00:00.000000000")
+        ed_event = np.datetime64(f"{year_event}-{t['em']}-{t['ed']}T00:00:00.000000000")
+
+        sd_bau = np.datetime64(f"{year_bau}-{t['sm']}-{t['sd']}T00:00:00.000000000")
+        ed_bau = np.datetime64(f"{year_bau}-{t['em']}-{t['ed']}T00:00:00.000000000")
 
         for adm in list_adm:
             geometry = bound_lv2.loc[bound_lv2[adm_col] == adm].geometry
 
             # cal obs deweather no2 ds
-            adm_no2_ds = (
-                ds.rio.clip(geometry, bound_lv2.crs)
+            adm_obs_bau_ds = (
+                ds_war.rio.clip(geometry, bound_lv2.crs)
                 .mean(dim=["lat", "lon"])
-                .sel(time=slice(sd, ed))
+                .sel(time=slice(sd_event, ed_event))
                 .mean("time")[[S5P_PRED_COL, S5P_OBS_COL]]
             )
 
-            dict_no2_change[tk].append(
-                (adm_no2_ds[S5P_OBS_COL].item() - adm_no2_ds[S5P_PRED_COL].item())
+            adm_y2y_ds = (
+                ds_bau.rio.clip(geometry, bound_lv2.crs)
+                .mean(dim=["lat", "lon"])
+                .sel(time=slice(sd_bau, ed_bau))
+                .mean("time")[[S5P_OBS_COL]]
+            )
+
+            dict_obs_bau[tk].append(
+                (
+                    adm_obs_bau_ds[S5P_OBS_COL].item()
+                    - adm_obs_bau_ds[S5P_PRED_COL].item()
+                )
                 * 100
-                / adm_no2_ds[S5P_PRED_COL].item()
+                / adm_obs_bau_ds[S5P_PRED_COL].item()
+            )
+            dict_y2y[tk].append(
+                (adm_obs_bau_ds[S5P_OBS_COL].item() - adm_y2y_ds[S5P_OBS_COL].item())
+                * 100
+                / adm_y2y_ds[S5P_OBS_COL].item()
             )
 
             # cal conflict_ds
-            mask_date = (conflict_ds["DATETIME"] > sd) & (conflict_ds["DATETIME"] <= ed)
+            mask_date = (conflict_ds["DATETIME"] > sd_event) & (
+                conflict_ds["DATETIME"] <= ed_event
+            )
             amd_cflt_ds = conflict_ds.loc[mask_date]
             amd_cflt_ds = gpd.clip(amd_cflt_ds, geometry)
             dict_conflict_change[tk].append(len(amd_cflt_ds))
 
             # cal fire ds
-            mask_date = (fire_ds["DATETIME"] > sd) & (fire_ds["DATETIME"] <= ed)
+            mask_date = (fire_ds["DATETIME"] > sd_event) & (
+                fire_ds["DATETIME"] <= ed_event
+            )
             amd_fire_ds = fire_ds.loc[mask_date]
             amd_fire_ds = gpd.clip(amd_fire_ds, geometry)
             dict_fire_change[tk].append(len(amd_fire_ds))
 
-        bound_lv2[f"war_{tk}"] = dict_no2_change[tk]
+        bound_lv2[f"obs_bau_{tk}"] = dict_obs_bau[tk]
+        bound_lv2[f"y2y_{tk}"] = dict_y2y[tk]
         bound_lv2[f"conflict_{tk}"] = dict_conflict_change[tk]
         bound_lv2[f"fire_{tk}"] = dict_fire_change[tk]
 
-    # nrows = 1 if mode[0] == "2" else len(tks[2:])
-
-    # mode =["2_cf", "2_no2_bau", "3_cf_no2_bau"]
     nrows = len(tks)
-    ncols = 3
+    ncols = 4
     figure, ax = plt.subplots(
         nrows, ncols, figsize=(6 * ncols, 5 * nrows), layout="constrained"
     )
-    # if mode == "2_cf":
-    #     t = tks[1]
-    #     bound_lv2.plot(
-    #         column=f"conflict_{t}",
-    #         ax=ax[0],
-    #         legend=True,
-    #         cmap=CMAP_CONFLICT,
-    #         legend_kwds={
-    #             "label": "Number of conflict spots",
-    #             "orientation": "horizontal",
-    #             "extend": "both",
-    #             "fraction": 0.8,
-    #         },
-    #     )
 
-    #     bound_lv2.plot(
-    #         column=f"fire_{t}",
-    #         ax=ax[1],
-    #         legend=True,
-    #         cmap=CMAP_FIRE,
-    #         legend_kwds={
-    #             "label": "Number of fire spots",
-    #             "orientation": "horizontal",
-    #             "extend": "both",
-    #             "fraction": 0.8,
-    #         },
-    #     )
-    #     ax[0].set_title(f"a) Conflict locations", fontsize=14)
-    #     ax[1].set_title(f"b) Fire spots", fontsize=14)
-    #     for i in range(len(ax)):
-    #         bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-    #     plt.suptitle(
-    #         rf"Conflict locations and Fire spots in {year_ref}[{t}]", fontsize=18
-    #     )
-    # elif mode == "2_no2_bau":
-    #     for i in [0, 1]:
-    #         bound_lv2.plot(
-    #             column=f"war_{tks[i]}",
-    #             ax=ax[i],
-    #             legend=True,
-    #             cmap=CMAP_NO2,
-    #             vmin=-40,
-    #             vmax=40,
-    #             legend_kwds={
-    #                 "label": r"NO$_{2}$ col. change (%)",
-    #                 "orientation": "horizontal",
-    #                 "extend": "both",
-    #                 "shrink": 0.8,
-    #             },
-    #         )
-    #         ax[i].set_title(
-    #             f"{INDEX_FIG[i]}) {year_ref}_OBS[{tks[i]}] - {year_ref}_BAU[{tks[i]}]",
-    #             fontsize=14,
-    #         )
-    #         coal_gdf.plot(
-    #             ax=ax[i],
-    #             color=COAL_COLOR,
-    #             markersize=20,
-    #             label="CPP",
-    #         )
-    #         bound_lv2.plot(ax=ax[i], facecolor="None", edgecolor="black", lw=0.2)
-    #     event_bound = conflict_df.loc[conflict_df[f"conflict_{tks[i]}"] > 2]
-    #     event_bound.plot(
-    #         ax=ax[i], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
-    #     )
-    #     border_df.plot(ax=ax[i], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
-    #     handles, _ = ax[i].get_legend_handles_labels()
-    #     ax[i].legend(handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left")
-    #     plt.suptitle(
-    #         rf"OBS_NO$_{2}$ - BAU_NO$_{2}$ difference (City level)", fontsize=18
-    #     )
-    # elif mode == "3_cf_no2_bau":
+    obs_bau_mean_war_adm2 = []
+    obs_bau_mean_border_amd2 = []
+    obs_bau_mean_normal_adm2 = []
+
+    obs_bau_std_war_adm2 = []
+    obs_bau_std_border_amd2 = []
+    obs_bau_std_normal_adm2 = []
+
+    y2y_mean_war_adm2 = []
+    y2y_mean_border_amd2 = []
+    y2y_mean_normal_adm2 = []
+
+    y2y_std_war_adm2 = []
+    y2y_std_border_amd2 = []
+    y2y_std_normal_adm2 = []
     for i, tk in enumerate(tks):
-        legend = False if i < 4 else True
+
+        legend = False if i < (len(tks) - 1) else True
         bound_lv2.plot(
-            column=f"war_{tk}",
+            column=f"y2y_{tk}",
             ax=ax[i][0],
             legend=legend,
             cmap=CMAP_NO2,
@@ -1684,8 +1653,22 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
             },
         )
         bound_lv2.plot(
-            column=f"conflict_{tk}",
+            column=f"obs_bau_{tk}",
             ax=ax[i][1],
+            legend=legend,
+            cmap=CMAP_NO2,
+            vmin=-20,
+            vmax=20,
+            legend_kwds={
+                "label": r"NO$_{2}$ col. change (%)",
+                "orientation": "horizontal",
+                "extend": "both",
+                "shrink": 0.8,
+            },
+        )
+        bound_lv2.plot(
+            column=f"conflict_{tk}",
+            ax=ax[i][2],
             legend=legend,
             cmap=CMAP_CONFLICT,
             vmin=0,
@@ -1700,7 +1683,7 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
 
         bound_lv2.plot(
             column=f"fire_{tk}",
-            ax=ax[i][2],
+            ax=ax[i][3],
             legend=legend,
             cmap=CMAP_FIRE,
             vmin=0,
@@ -1712,37 +1695,95 @@ def plot_obs_bau_adm2(org_ds, year_ref, mode="3_cf_no2_bau"):
                 "shrink": 0.8,
             },
         )
-
+        # threshold_conflict_point = 2 if i < 2 else 5
+        threshold_conflict_point = 3
         event_bound = conflict_df.loc[
-            conflict_df[f"conflict_{tk}"] > THRESHOLD_CONFLICT_POINT
+            conflict_df[f"conflict_{tk}"] > threshold_conflict_point
         ]
         event_bound.plot(
             ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
         )
+        event_bound.plot(
+            ax=ax[i][1], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
+        )
         border_df.plot(ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
+        border_df.plot(ax=ax[i][1], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
+
+        # extract scores
+        war_ds = bound_lv2.loc[bound_lv2[adm_col].isin(event_bound[adm_col].tolist())]
+        border_ds = bound_lv2.loc[bound_lv2[adm_col].isin(border_df[adm_col].tolist())]
+        # normal_ds = bound_lv2.loc[
+        #     ~bound_lv2[adm_col].isin(
+        #         border_df[adm_col].tolist() + event_bound[adm_col].tolist()
+        #     )
+        # ]
+        normal_ds = bound_lv2.loc[
+            ~bound_lv2[adm_col].isin(event_bound[adm_col].tolist())
+        ]
+
+        obs_bau_mean_war_adm2.append(war_ds[f"obs_bau_{tk}"].mean())
+        obs_bau_mean_border_amd2.append(border_ds[f"obs_bau_{tk}"].mean())
+        obs_bau_mean_normal_adm2.append(normal_ds[f"obs_bau_{tk}"].mean())
+
+        obs_bau_std_war_adm2.append(war_ds[f"obs_bau_{tk}"].std())
+        obs_bau_std_border_amd2.append(border_ds[f"obs_bau_{tk}"].std())
+        obs_bau_std_normal_adm2.append(normal_ds[f"obs_bau_{tk}"].std())
+
+        y2y_mean_war_adm2.append(war_ds[f"y2y_{tk}"].mean())
+        y2y_mean_border_amd2.append(border_ds[f"y2y_{tk}"].mean())
+        y2y_mean_normal_adm2.append(normal_ds[f"y2y_{tk}"].mean())
+
+        y2y_std_war_adm2.append(war_ds[f"y2y_{tk}"].std())
+        y2y_std_border_amd2.append(border_ds[f"y2y_{tk}"].std())
+        y2y_std_normal_adm2.append(normal_ds[f"y2y_{tk}"].std())
 
         for j in range(len(ax[i])):
-            coal_gdf.plot(
-                ax=ax[i][j],
-                color=COAL_COLOR,
-                markersize=20,
-                label="CPP",
-            )
-            bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.2)
-            ax[i][j].legend(loc="lower left")
+            # coal_gdf.plot(
+            #     ax=ax[i][j],
+            #     color=COAL_COLOR,
+            #     markersize=20,
+            #     label="CPP",
+            # )
+            bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.05)
+            # ax[i][j].legend(loc="lower left")
 
         handles, _ = ax[i][0].get_legend_handles_labels()
         ax[i][0].legend(handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left")
 
-        ax[i][0].set_title(rf"{year_ref}_OBS[{tk}] - {year_ref}_BAU[{tk}]", fontsize=14)
-        ax[i][1].set_title(f"Conflict Locations {year_ref}[{tk}]", fontsize=14)
-        ax[i][2].set_title(f"Fire Locations {year_ref}[{tk}]", fontsize=14)
+        ax[i][0].set_title(
+            rf"{year_event}_OBS[{tk}] - {year_bau}_OBS[{tk}]", fontsize=14
+        )
+        ax[i][1].legend(handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left")
+
+        ax[i][1].set_title(
+            rf"{year_event}_OBS[{tk}] - {year_event}_BAU[{tk}]", fontsize=14
+        )
+        ax[i][2].set_title(f"Conflict Locations {year_event}[{tk}]", fontsize=14)
+        ax[i][3].set_title(f"Fire Locations {year_event}[{tk}]", fontsize=14)
     plt.suptitle(
         rf"OBS_NO$_{2}$ -  BAU_NO$_{2}$ difference , Conflict locations, and Fire spots 2022[Mar - Jul] (City level)",
         fontsize=18,
     )
 
-    return bound_lv2
+    mean_std_df = pd.DataFrame()
+    mean_std_df["time"] = tks
+
+    mean_std_df["mean_normal_obs_bau"] = obs_bau_mean_normal_adm2
+    mean_std_df["std_normal_obs_bau"] = obs_bau_std_normal_adm2
+    mean_std_df["mean_normal_y2y"] = y2y_mean_normal_adm2
+    mean_std_df["std_normal_y2y"] = y2y_std_normal_adm2
+
+    mean_std_df["mean_war_obs_bau"] = obs_bau_mean_war_adm2
+    mean_std_df["std_war_obs_bau"] = obs_bau_std_war_adm2
+    mean_std_df["mean_war_y2y"] = y2y_mean_war_adm2
+    mean_std_df["std_war_y2y"] = y2y_std_war_adm2
+
+    # mean_std_df["mean_border_obs_bau"] = obs_bau_mean_border_amd2
+    # mean_std_df["std_border_obs_bau"] = obs_bau_std_border_amd2
+    # mean_std_df["mean_border_y2y"] = y2y_mean_border_amd2
+    # mean_std_df["std_border_y2y"] = y2y_std_border_amd2
+
+    return bound_lv2, mean_std_df
 
 
 def plot_conflict_refugee_adm2():
@@ -1866,11 +1907,11 @@ def plot_wind_rose(ds, year_src, event="covid"):
     ds.era5[wind_var] = np.sqrt(u10**2 + v10**2)
     sd_ed = PERIOD_DICT[year_target]
     tks = list(sd_ed.keys())
-    
-    ncols = 2
-    nrows = int(len(tks)/2)
 
-    fig = plt.figure(figsize=(ncols * 5, nrows*5), constrained_layout=True)
+    ncols = 2
+    nrows = int(len(tks) / 2)
+
+    fig = plt.figure(figsize=(ncols * 5, nrows * 5), constrained_layout=True)
     fig.suptitle(f"Wind speed and direction in {year_src}")
 
     for i, tk in enumerate(tks):
@@ -1916,7 +1957,7 @@ def plot_wind_rose(ds, year_src, event="covid"):
         #     if event == "covid"
         #     else fig.add_subplot(2, 3, i + 1, projection="windrose")
         # )
-        ax = fig.add_subplot(nrows, ncols, i+1, projection="windrose")
+        ax = fig.add_subplot(nrows, ncols, i + 1, projection="windrose")
 
         # ax_w = WindroseAxes.from_ax(ax[i])
         ax.contourf(

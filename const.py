@@ -42,16 +42,16 @@ PERIOD_DICT = {
 LIST_POP_CITY = [
     "Kyiv",
     "Kharkivska",
-    "Odeska", # 
+    "Odeska",  #
     "Dniprovska",
     "Donetska",
     "Zaporizka",
     "Lvivska",
     "Kryvorizka",
-    "Mykolaivska", #
+    "Mykolaivska",  #
     "Mariupolska",
-    "Luhanska", #
-    "Vinnytska", #
+    "Luhanska",  #
+    "Vinnytska",  #
     "Simferopolska",
     "Makiivska",
     "Poltavska",
@@ -161,6 +161,7 @@ S5P_OBS_COL = r"OBS_S5P"
 S5P_PRED_COL = r"BAU_S5P"
 OBS_PRED_CHNAGE = r"OBS_BAU_Difference"
 
+# ERA5_COLS = ["u10", "v10", "d2m", "t2m", "blh", "z"]
 ERA5_COLS = ["u10", "v10", "d2m", "t2m", "blh", "z", "relative humidity"]
 POP_COLS = ["pop"]
 S5P_COLS = [S5P_OBS_COL]
@@ -207,4 +208,4 @@ LG_BORDER = [
     mpatches.Patch(facecolor="w", edgecolor=EDGE_COLOR_BORDER, label="Border City")
 ]
 
-THRESHOLD_CONFLICT_POINT = 10
+THRESHOLD_CONFLICT_POINT = 2
