@@ -1635,6 +1635,7 @@ def plot_obs_bau_adm2(org_ds):
     y2y_std_war_adm2 = []
     y2y_std_border_amd2 = []
     y2y_std_normal_adm2 = []
+    vmin, vmax = -35, 35
     for i, tk in enumerate(tks):
 
         legend = False if i < (len(tks) - 1) else True
@@ -1643,8 +1644,8 @@ def plot_obs_bau_adm2(org_ds):
             ax=ax[i][0],
             legend=legend,
             cmap=CMAP_NO2,
-            vmin=-20,
-            vmax=20,
+            vmin=vmin,
+            vmax=vmax,
             legend_kwds={
                 "label": r"NO$_{2}$ col. change (%)",
                 "orientation": "horizontal",
@@ -1657,8 +1658,8 @@ def plot_obs_bau_adm2(org_ds):
             ax=ax[i][1],
             legend=legend,
             cmap=CMAP_NO2,
-            vmin=-20,
-            vmax=20,
+            vmin=vmin,
+            vmax=vmax,
             legend_kwds={
                 "label": r"NO$_{2}$ col. change (%)",
                 "orientation": "horizontal",
@@ -1695,8 +1696,7 @@ def plot_obs_bau_adm2(org_ds):
                 "shrink": 0.8,
             },
         )
-        # threshold_conflict_point = 2 if i < 2 else 5
-        threshold_conflict_point = 3
+        threshold_conflict_point = 5 if i < 2 else 18
         event_bound = conflict_df.loc[
             conflict_df[f"conflict_{tk}"] > threshold_conflict_point
         ]
