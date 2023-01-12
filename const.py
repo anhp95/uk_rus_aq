@@ -30,7 +30,7 @@ PERIOD_DICT = {
     2020: {
         "02/08_03/25": {"sd": "08", "sm": "02", "ed": 25, "em": "03"},
         "03/25_05/11": {"sd": 25, "sm": "03", "ed": 11, "em": "05"},
-        # "Feb 24-28": {"sd": "01", "sm": "02", "ed": "01", "em": "03"},
+        # "02/24_02/28": {"sd": "15", "sm": "02", "ed": "08", "em": "03"},
         # "March": {"sd": "01", "sm": "03", "ed": "01", "em": "04"},
         # "April": {"sd": "01", "sm": "04", "ed": "01", "em": "05"},
         # "May": {"sd": "01", "sm": "05", "ed": "01", "em": "06"},
@@ -38,24 +38,41 @@ PERIOD_DICT = {
         # "July": {"sd": "01", "sm": "07", "ed": "01", "em": "08"},
     },
 }
-
+# level 3
 LIST_POP_CITY = [
     "Kyiv",
     "Kharkivska",
-    "Odeska",  #
+    # "Odeska",  #
     "Dniprovska",
     "Donetska",
     "Zaporizka",
     "Lvivska",
     "Kryvorizka",
-    "Mykolaivska",  #
+    # "Mykolaivska",  #
     "Mariupolska",
-    "Luhanska",  #
-    "Vinnytska",  #
+    # "Luhanska",  #
+    # "Vinnytska",  #
     "Simferopolska",
     "Makiivska",
     "Poltavska",
 ]
+# level 2
+# LIST_POP_CITY = [
+#     "Kyiv",
+#     'Kharkivskyi',
+#     'Odeskyi',  #
+#     'Dniprovskyi',
+#     'Donetskyi',
+#     'Zaporizkyi',
+#     'Lvivskyi',
+#     'Kryvorizkyi',
+#     'Mykolaivskyi',  #
+#     'Mariupolskyi',
+#     'Luhanskyi',  #
+#     'Vinnytskyi',  #
+#     'Simferopolskyi',
+#     'Poltavskyi',
+# ]
 
 LIST_BOUNDARY_CITY = [
     "Kovelskyi",
@@ -89,57 +106,9 @@ RANDOM_GRID = {
     "n_estimators": [200, 400, 600, 800],
 }
 
-# best
-# LGBM_HYP_PARAMS = {
-#     "task": "train",
-#     "boosting_type": "gbdt",
-#     # "objective": "r2",
-#     # "categorical_feature": [8, 9, 10, 11],
-#     "device": "gpu",
-#     "learning_rate": 0.2878718717131533,
-#     "max_bin": 63,
-#     "min_child_samples": 17,
-#     "n_estimators": 1423,
-#     "num_leaves": 158,
-#     "reg_alpha": 0.0009765625,
-#     "reg_lambda": 0.002163471696790266,
-#     "verbose": -1,
-# }
-# 120p
-# LGBM_HYP_PARAMS = {
-#     "task": "train",
-#     "boosting_type": "gbdt",
-#     # "objective": "r2",
-#     # "categorical_feature": [8, 9, 10, 11],
-#     "device": "gpu",
-#     "learning_rate": 0.03973535232045191,
-#     "max_bin": 63,
-#     "min_child_samples": 10,
-#     "n_estimators": 6752,
-#     "num_leaves": 3021,
-#     "reg_alpha": 0.0009765625,
-#     "reg_lambda": 0.0013601072689988676,
-#     "verbose": -1,
-# }
-# LGBM_HYP_PARAMS = {
-#     "task": "train",
-#     "boosting_type": "gbdt",
-#     # "objective": "r2",
-#     # "categorical_feature": [8, 9, 10, 11],
-#     "colsample_bytree": 0.8934379191261091,
-#     "device": "gpu",
-#     "learning_rate": 0.15341521277488823,
-#     "max_bin": 63,
-#     "min_child_samples": 9,
-#     "n_estimators": 1048,
-#     "num_leaves": 12939,
-#     "reg_alpha": 0.0009765625,
-#     "reg_lambda": 0.007932140797921046,
-#     "verbose": -1,
-# }
-# with rh
+# with rh metric r2
 LGBM_HYP_PARAMS = {
-    "task": "train",
+    "task": "predict",
     "boosting_type": "gbdt",
     # "objective": "r2",
     # "categorical_feature": [8, 9, 10, 11],
@@ -154,6 +123,22 @@ LGBM_HYP_PARAMS = {
     "reg_lambda": 0.015015810897755463,
     "verbose": -1,
 }
+# with rh metric rmse
+# LGBM_HYP_PARAMS = {
+#     "task": "predict",
+#     "boosting_type": "gbdt",
+#     # "objective": "r2",
+#     # "categorical_feature": [8, 9, 10, 11],
+#     "colsample_bytree": 0.8014116865069221,
+#     "device": "gpu",
+#     "learning_rate": 0.033420125759145575,
+#     "max_bin": 63,
+#     "min_child_samples": 2,
+#     "n_estimators": 32171,
+#     "num_leaves": 2375,
+#     "reg_alpha": 0.0009765625,
+#     "reg_lambda": 0.09726537671050817,
+# }
 
 NO2_UNIT = f"$10^{{{-6}}}$ $mol/m^2$"
 

@@ -24,6 +24,27 @@ def get_bound(shp_file=UK_SHP_ADM0):
     return geometry, crs
 
 
+def drop_outlier(df_train, df_test, cols):
+    # cols = [S5P_OBS_COL] # one or more
+    df = pd.concat([df_train, df_test])
+    Q1 = df[cols].quantile(0.05)
+    Q3 = df[cols].quantile(0.95)
+    IQR = Q3 - Q1
+
+    df_train = df_train[
+        ~(
+            (df_train[cols] < (Q1 - 1.5 * IQR)) | (df_train[cols] > (Q3 + 1.5 * IQR))
+        ).any(axis=1)
+    ]
+    df_test = df_test[
+        ~((df_test[cols] < (Q1 - 1.5 * IQR)) | (df_test[cols] > (Q3 + 1.5 * IQR))).any(
+            axis=1
+        )
+    ]
+
+    return df_train, df_test
+
+
 def get_bound_pop():
 
     adm_col = "ADM3_EN"

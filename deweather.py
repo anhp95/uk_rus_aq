@@ -38,7 +38,7 @@ class Dataset(object):
     test_geo_path = TEST_GEO
     pfm_path = PFM_PATH
     rate_train = 0.8
-    rate_test = rate_train / 4
+    rate_test = 0.2
 
     def __init__(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc) -> None:
 
@@ -68,9 +68,9 @@ class Dataset(object):
         # self.params_search()
         self.train_de_weather_model()
 
-        self.build_deweather_pred()
-        self.to_df()
-        self.de_weather()
+        # self.build_deweather_pred()
+        # self.to_df()
+        # self.de_weather()
 
     def load_data(self, cams_reals_nc, cams_fc_nc, era5_nc, s5p_nc, pop_nc):
 
@@ -117,9 +117,11 @@ class Dataset(object):
         self.test_geo = random.sample(list_geo, int(len(list_geo) * self.rate_test))
 
         [list_geo.remove(x) for x in self.test_geo]
-        train = random.sample(list_geo, int(len(list_geo) * self.rate_train))
+        # train = random.sample(list_geo, int(len(list_geo) * self.rate_train))
 
-        self.train_geo = [x for x in train if x not in self.test_geo]
+        # self.train_geo = [x for x in train if x not in self.test_geo]
+        self.train_geo = list_geo
+        print("train/test samples: ", len(self.train_geo), len(self.test_geo))
 
     def reform_data(self, year, list_geo):
 
@@ -183,6 +185,10 @@ class Dataset(object):
         self.train_2019 = train_2019.dropna()
         self.test_2019 = test_2019.dropna()
 
+        # self.train_2019, self.test_2019 = drop_outlier(
+        #     train_2019, test_2019, [S5P_OBS_COL]
+        # )
+
     def extract_Xy_train_test(self):
         X_train = self.train_2019.drop(columns=[S5P_OBS_COL, "time"]).values
         X_test = self.test_2019.drop(columns=[S5P_OBS_COL, "time"]).values
@@ -200,8 +206,8 @@ class Dataset(object):
 
         automl = AutoML()
         settings = {
-            "time_budget": 60 * 360,  # total running time in seconds
-            "metric": "r2",  # primary metrics for regression can be chosen from: ['mae','mse','r2']
+            "time_budget": 60 * 720,  # total running time in seconds
+            "metric": "rmse",  # primary metrics for regression can be chosen from: ['mae','mse','r2']
             # "estimator_list": ['lgbm'],  # list of ML learners; we tune lightgbm in this example
             "task": "regression",  # task type
             # "log_file_name": "houses_experiment.log",  # flaml log file
@@ -268,23 +274,44 @@ class Dataset(object):
         self.test_2019[S5P_PRED_COL] = y_pred
         self.train_2019[S5P_PRED_COL] = y_pred_train
 
-        mse_test = mean_squared_error(y_test, y_pred)
-        mse_train = mean_squared_error(y_train, y_pred_train)
+        rmse_test = mean_squared_error(y_test, y_pred, squared=False)
+        rmse_train = mean_squared_error(y_train, y_pred_train, squared=False)
 
         r2_test = r2_score(y_test, y_pred)
         r2_train = r2_score(y_train, y_pred_train)
 
-        print(f"mean_squared_error test: {mse_test}")
-        print(f"mean_squared_error train: {mse_train}")
+        norm_rmse_test_2 = np.sum(np.square(y_test - y_pred)) / np.sum(np.square(y_test))
+        norm_rmse_train_2 = np.sum(np.square(y_train - y_pred_train)) / np.sum(np.square(y_train))
+        
+        norm_rmse_test = norm_rmse_test_2, rmse_test / np.amax(y_test), rmse_test / (np.amax(y_test) - np.amin(y_test))
+        norm_rmse_train = norm_rmse_train_2, rmse_train / np.amax(y_train), rmse_train / (np.amax(y_train) - np.amin(y_train))
+
+        MBE_test = np.mean(y_pred - y_test)
+        MBE_train = np.mean(y_pred_train - y_train)
+
+        norm_MBE_test = np.sum(y_pred - y_test) / np.sum(y_test)
+        norm_MBE_train = np.sum(y_pred_train - y_train) / np.sum(y_train)
+
+        print(f"rmse test: {rmse_test}")
+        print(f"rmse train: {rmse_train}")
+
+        print(f"norm rmse test: {norm_rmse_test}")
+        print(f"norm rmse train: {norm_rmse_train}")
+
+        print(f"mbe test: {MBE_test}")
+        print(f"mbe train: {MBE_train}")
+
+        print(f"norm mbe test: {norm_MBE_test}")
+        print(f"norm mbe train: {norm_MBE_train}")
 
         print(f"r2 score test: {r2_test}")
         print(f"r2 score train: {r2_train}")
 
-        print("-------test pcc ---------")
-        print(linregress(y_pred, y_test))
+        # print("-------test pcc ---------")
+        # print(linregress(y_pred, y_test))
 
-        print("-------train pcc-----------")
-        print(linregress(y_pred_train, y_train))
+        # print("-------train pcc-----------")
+        # print(linregress(y_pred_train, y_train))
 
     def build_deweather_pred(self):
         if not os.path.exists(self.de_weather_model_pred_path):
@@ -386,18 +413,3 @@ class Dataset(object):
 # plot_obs_bau_adm2(ds, 2022, "2_no2_bau")
 
 # %%
-# LGBMRegressor(categorical_feature=[8, 9, 10, 11], device='gpu',
-#               learning_rate=0.03517259015200922, max_bin=31,
-#               min_child_samples=4, n_estimators=32767, num_leaves=372,
-#               reg_alpha=0.02271142170225636, reg_lambda=0.001963791798843179,
-#               verbose=-1)
-
-# {'n_estimators': 445,
-# 'num_leaves': 398,
-# 'min_child_samples': 49,
-# 'learning_rate': 0.19693997225266072,
-# 'log_max_bin': 6,
-# 'colsample_bytree': 1.0,
-# 'reg_alpha': 0.0010519522161444674,
-# 'reg_lambda': 0.007270906105523081,
-# 'FLAML_sample_size': 1181619}

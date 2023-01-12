@@ -401,7 +401,7 @@ def plot_fire_conflict():
             df = fire_df.loc[mask]
 
             coal_gdf.plot(
-                ax=ax_fire[i][j], color="green", markersize=20, label=label_coal
+                ax=ax_fire[i][j], color=COAL_COLOR, markersize=20, label=label_coal
             )
             df.plot(ax=ax_fire[i][j], color=color_fire, markersize=2, label=label_fire)
             bound_lv1.plot(
@@ -442,7 +442,7 @@ def plot_fire_conflict():
         masked_conflict_df = conflict_df.loc[mask]
 
         coal_gdf.plot(
-            ax=ax_conflict[i][j], color="green", markersize=20, label=label_coal
+            ax=ax_conflict[i][j], color=COAL_COLOR, markersize=20, label=label_coal
         )
         masked_fire_df.plot(
             ax=ax_conflict[i][j],
@@ -460,7 +460,7 @@ def plot_fire_conflict():
         ax_conflict[i][j].set_title(f"2022[{tk}]", fontsize=25)
 
         coal_gdf.plot(
-            ax=ax_conflict[i + 1][j], color="green", markersize=20, label=label_coal
+            ax=ax_conflict[i + 1][j], color=COAL_COLOR, markersize=20, label=label_coal
         )
         masked_conflict_df.plot(
             ax=ax_conflict[i + 1][j],
@@ -541,7 +541,7 @@ def plot_ax_line(
     df[[S5P_PRED_COL, S5P_OBS_COL]].plot.line(
         ax=ax, color=pred_truth_diff, legend=False
     )
-    # ax.set_ylim([-40, 200])
+    ax.set_ylim([df[S5P_OBS_COL].min() - 20, df[S5P_OBS_COL].max() + 50])
 
     if set_ylabel:
         ax.set_ylabel(NO2_UNIT)
@@ -625,13 +625,13 @@ def plot_ppl_obs_bau_line_mlt(org_ds):
 
     coal_gdf = gpd.read_file(UK_COAL_SHP)
     coal_gdf.crs = "EPSG:4326"
-    coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.2, cap_style=3)
+    # coal_gdf["buffer"] = coal_gdf.geometry.buffer(0.1, cap_style=3)
 
     for i, ppl_name in enumerate(coal_gdf.name.values):
 
-        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
-        # geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
-        fig, ax = plt.subplots(1, 4, figsize=(20, 4))
+        # geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name]["buffer"].geometry
+        geometry = coal_gdf.loc[coal_gdf["name"] == ppl_name].geometry
+        fig, ax = plt.subplots(1, 4, figsize=(28, 4))
 
         plot_ax_line(
             ds_2019, geometry, ppl_name, coal_gdf, ax[0], 2019, set_ylabel=True
@@ -666,18 +666,12 @@ def plot_obs_bau_pop_line_mlt(org_ds, event="covid"):
 
     col = "ADM3_EN"
     bound_pop, crs = get_bound_pop()
+
     # col = "ADM2_EN"
+    # bound_pop = gpd.read_file(UK_SHP_ADM2)
+
     list_city = LIST_POP_CITY
-    # list_city = [
-    #     "Kyiv",
-    #     "Kharkivska",
-    #     "Donetska",
-    #     "Lvivska",
-    #     "Dniprovska",
-    #     "Odeska",
-    #     "Zaporizka",
-    #     "Kryvorizka",
-    # ]
+
     nrows, ncols = len(list_city), 4
     fig, ax = plt.subplots(
         nrows, ncols, figsize=(12 * ncols, 6 * nrows), layout="constrained"
@@ -891,13 +885,13 @@ def plot_weather_params(ds, event="covid"):
     ds.era5["wind"] = np.sqrt(u10**2 + v10**2)
 
     year_target = 2022
-    list_color = ["#1b9e77", "#d95f02", "#7570b3", "#e7298a"]
+    list_color = ["#1b9e77", "#e7298a"]
 
     if event == "covid":
         year_target = 2020
         list_color = ["#1b9e77", "#d95f02"]
 
-    years = [i for i in range(2019, year_target + 1)]
+    years = [2019, year_target]
     sd_ed = PERIOD_DICT[year_target]
 
     tks = list(sd_ed.keys())
@@ -1697,6 +1691,7 @@ def plot_obs_bau_adm2(org_ds):
             },
         )
         threshold_conflict_point = 5 if i < 2 else 18
+        # threshold_conflict_point = 2
         event_bound = conflict_df.loc[
             conflict_df[f"conflict_{tk}"] > threshold_conflict_point
         ]
@@ -1706,8 +1701,8 @@ def plot_obs_bau_adm2(org_ds):
         event_bound.plot(
             ax=ax[i][1], facecolor="None", edgecolor=EDGE_COLOR_CONFLICT, lw=1
         )
-        border_df.plot(ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
-        border_df.plot(ax=ax[i][1], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
+        # border_df.plot(ax=ax[i][0], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
+        # border_df.plot(ax=ax[i][1], facecolor="None", edgecolor=EDGE_COLOR_BORDER, lw=1)
 
         # extract scores
         war_ds = bound_lv2.loc[bound_lv2[adm_col].isin(event_bound[adm_col].tolist())]
@@ -1738,22 +1733,22 @@ def plot_obs_bau_adm2(org_ds):
         y2y_std_normal_adm2.append(normal_ds[f"y2y_{tk}"].std())
 
         for j in range(len(ax[i])):
-            # coal_gdf.plot(
-            #     ax=ax[i][j],
-            #     color=COAL_COLOR,
-            #     markersize=20,
-            #     label="CPP",
-            # )
+            coal_gdf.plot(
+                ax=ax[i][j],
+                color=COAL_COLOR,
+                markersize=20,
+                label="CPP",
+            )
             bound_lv2.plot(ax=ax[i][j], facecolor="None", edgecolor="black", lw=0.05)
-            # ax[i][j].legend(loc="lower left")
+            ax[i][j].legend(loc="lower left")
 
         handles, _ = ax[i][0].get_legend_handles_labels()
-        ax[i][0].legend(handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left")
+        ax[i][0].legend(handles=[*LG_CONFLICT, *handles], loc="lower left")
 
         ax[i][0].set_title(
             rf"{year_event}_OBS[{tk}] - {year_bau}_OBS[{tk}]", fontsize=14
         )
-        ax[i][1].legend(handles=[*LG_CONFLICT, *LG_BORDER, *handles], loc="lower left")
+        ax[i][1].legend(handles=[*LG_CONFLICT, *handles], loc="lower left")
 
         ax[i][1].set_title(
             rf"{year_event}_OBS[{tk}] - {year_event}_BAU[{tk}]", fontsize=14
@@ -1761,7 +1756,7 @@ def plot_obs_bau_adm2(org_ds):
         ax[i][2].set_title(f"Conflict Locations {year_event}[{tk}]", fontsize=14)
         ax[i][3].set_title(f"Fire Locations {year_event}[{tk}]", fontsize=14)
     plt.suptitle(
-        rf"OBS_NO$_{2}$ -  BAU_NO$_{2}$ difference , Conflict locations, and Fire spots 2022[Mar - Jul] (City level)",
+        rf"OBS_NO$_{2}$ -  BAU_NO$_{2}$ difference , Conflict locations, and Fire spots 2022[Feb - Jul] (City level)",
         fontsize=18,
     )
 
